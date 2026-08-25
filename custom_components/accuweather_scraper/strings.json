@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add AccuWeather location",
+        "description": "Enter the AccuWeather weather forecast URL. The air-quality URL will be derived automatically.",
+        "data": {
+          "weather_url": "AccuWeather weather URL",
+          "name": "Name"
+        }
+      }
+    },
+    "error": {
+      "invalid_domain": "The URL must be an AccuWeather URL.",
+      "invalid_weather_url": "Use an AccuWeather weather forecast URL such as https://www.accuweather.com/id/id/palmerah/681074/weather-forecast/681074.",
+      "location_key_mismatch": "The location keys in the URL do not match."
+    },
+    "abort": {
+      "already_configured": "This AccuWeather location is already configured."
+    }
+  }
+}

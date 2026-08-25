@@ -1,0 +1,21 @@
+type: entities
+title: AccuWeather
+entities:
+  - entity: sensor.temperature
+    name: Temperature
+  - entity: sensor.realfeel_temperature
+    name: RealFeel
+  - entity: sensor.humidity
+    name: Humidity
+  - entity: sensor.wind_speed
+    name: Wind
+  - entity: sensor.uv_index
+    name: UV Index
+  - entity: sensor.precipitation_probability
+    name: Precipitation
+  - entity: sensor.air_quality_index
+    name: AQI
+  - entity: sensor.pm25
+    name: PM2.5
+  - entity: sensor.pm10
+    name: PM10
