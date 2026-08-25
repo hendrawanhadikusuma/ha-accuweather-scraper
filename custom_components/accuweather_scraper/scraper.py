@@ -482,6 +482,13 @@ class AccuWeatherScraper:
 
         condition = self._text(soup, [".phrase", ".current-weather-info .phrase"])
 
+        def fallback_value(patterns: list[str]) -> str | None:
+            for pattern in patterns:
+                match = re.search(pattern, page_text, re.IGNORECASE)
+                if match:
+                    return match.group(1)
+            return None
+
         result: dict[str, Any] = {
             "temperature": self._number(temperature_text),
             "realfeel_temperature": self._number(realfeel_text),
@@ -499,6 +506,27 @@ class AccuWeatherScraper:
             "icon_code": icon_code,
             "icon": self._icon_from_code(icon_code) or self._normalize_condition(condition) or "mdi:help-circle",
         }
+
+        if result["humidity"] is None:
+            result["humidity"] = self._number(fallback_value([r"Kelembapan\s+(\d+)%", r"Humidity\s+(\d+)%"]))
+        if result["wind_speed"] is None:
+            result["wind_speed"] = self._number(fallback_value([r"Angin\s+[A-Z]{1,3}\s*(\d+(?:[.,]\d+)?)\s*km/j", r"Wind\s+[A-Z]{1,3}\s*(\d+(?:[.,]\d+)?)\s*km/h"]))
+        if result["gust_speed"] is None:
+            result["gust_speed"] = self._number(fallback_value([r"Angin Kencang\s*(\d+(?:[.,]\d+)?)\s*km/j", r"Wind Gusts\s*(\d+(?:[.,]\d+)?)\s*km/h"]))
+        if result["precipitation_probability"] is None:
+            result["precipitation_probability"] = self._number(fallback_value([r"Probabilitas Presipitasi\s*(\d+)%", r"Precipitation Probability\s*(\d+)%"]))
+        if result["cloud_cover"] is None:
+            result["cloud_cover"] = self._number(fallback_value([r"Tutupan Awan\s*(\d+)%", r"Cloud Cover\s*(\d+)%"]))
+        if result["pressure"] is None:
+            result["pressure"] = self._number(fallback_value([r"Tekanan\s*[↔↑↓]?\s*(\d+(?:[.,]\d+)?)\s*mb", r"Pressure\s*[↔↑↓]?\s*(\d+(?:[.,]\d+)?)\s*hPa"]))
+        if result["visibility"] is None:
+            result["visibility"] = self._number(fallback_value([r"Jarak Pandang\s*(\d+(?:[.,]\d+)?)\s*km", r"Visibility\s*(\d+(?:[.,]\d+)?)\s*km"]))
+        if result["dew_point"] is None:
+            result["dew_point"] = self._number(fallback_value([r"Titik Embun\s*(\d+(?:[.,]\d+)?)\s*°\s*C?", r"Dew Point\s*(\d+(?:[.,]\d+)?)\s*°"]))
+        if result["cloud_ceiling"] is None:
+            result["cloud_ceiling"] = self._number(fallback_value([r"Ketinggian Awan\s*(\d+(?:[.,]\d+)?)\s*m", r"Cloud Ceiling\s*(\d+(?:[.,]\d+)?)\s*ft"]))
+        if result["uv_index"] is None:
+            result["uv_index"] = self._int(fallback_value([r"Indeks UV\s*(\d+)", r'"cuuv":"(?P<value>\d+)"']))
 
         ad_info_match = re.search(r"adInfo:\s*\{(?P<body>[^}]+)\}", html)
         if ad_info_match:
@@ -748,6 +776,12 @@ class AccuWeatherScraper:
         forecast_daily = self._parse_daily_forecast(weather_html)
         allergy = self._parse_allergy(allergy_html) if allergy_html else {}
 
+        allergy.setdefault("average_wind", current_weather.get("wind_speed"))
+        allergy.setdefault("max_wind_gusts", current_weather.get("gust_speed"))
+        allergy.setdefault("realfeel_high", current_weather.get("realfeel_temperature"))
+
+        raw_condition = weather.get("condition") or current_weather.get("condition")
+
         values = {
             **{k: v for k, v in weather.items() if k != "condition" and k != "page_title"},
             **{k: v for k, v in current_weather.items() if k != "condition"},
@@ -759,7 +793,7 @@ class AccuWeatherScraper:
         return AccuWeatherData(
             location=location,
             location_key=self.location["location_key"],
-            condition=weather.get("condition"),
+            condition=raw_condition,
             values=values,
             attributes={
                 "weather_url": self.weather_url,
@@ -772,6 +806,7 @@ class AccuWeatherScraper:
                 "source": "AccuWeather HTML",
                 "icon": current_weather.get("icon"),
                 "icon_code": current_weather.get("icon_code"),
+                "condition_raw": raw_condition,
             },
             daily_forecast=forecast_daily,
             hourly_forecast=hourly_forecast,

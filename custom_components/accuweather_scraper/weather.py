@@ -223,7 +223,7 @@ class AccuWeatherWeather(CoordinatorEntity[AccuWeatherCoordinator], WeatherEntit
             **{f"allergy_{key}": value for key, value in self.coordinator.data.allergy.items()},
             "location": self.coordinator.data.location,
             "location_key": self.coordinator.data.location_key,
-            "condition_raw": self.coordinator.data.condition,
+            "condition_raw": self.coordinator.data.attributes.get("condition_raw") or self.coordinator.data.condition,
             "daily_forecast": daily_forecast,
             "daily_forecast_count": len(daily_forecast),
             "hourly_forecast": hourly_forecast,
