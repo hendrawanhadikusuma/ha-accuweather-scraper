@@ -5,6 +5,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import CONF_WEATHER_URL, DEFAULT_SCAN_INTERVAL, DOMAIN
@@ -17,7 +18,7 @@ class AccuWeatherCoordinator(DataUpdateCoordinator[AccuWeatherData]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.entry = entry
         self.scraper = AccuWeatherScraper(
-            session=hass.helpers.aiohttp_client.async_get_clientsession(),
+            session=async_get_clientsession(hass),
             weather_url=entry.data[CONF_WEATHER_URL],
         )
 
