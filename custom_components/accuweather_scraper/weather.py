@@ -67,6 +67,12 @@ class AccuWeatherWeather(CoordinatorEntity[AccuWeatherCoordinator], WeatherEntit
         return self.coordinator.data.values.get("realfeel_temperature")
 
     @property
+    def icon(self) -> str | None:
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.attributes.get("icon")
+
+    @property
     def native_dew_point(self):
         if not self.coordinator.data:
             return None

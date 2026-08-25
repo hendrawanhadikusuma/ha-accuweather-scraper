@@ -186,7 +186,7 @@ class AccuWeatherCard extends HTMLElement {
     const forecastCards = dailyForecast.map((item) => {
       const label = forecastLabel(item);
       const summary = item.summary || item.condition || '';
-      const iconName = getWeatherIcon(item.condition || summary);
+      const iconName = item.icon || getWeatherIcon(item.condition || summary);
       const high = formatNumber(item.temperature);
       const low = formatNumber(item.templow);
       const precip = item.precipitation_probability;
@@ -205,7 +205,7 @@ class AccuWeatherCard extends HTMLElement {
     const hourlyCards = hourlyForecast.map((item) => {
       const label = forecastLabel(item);
       const summary = item.summary || item.condition || '';
-      const iconName = getWeatherIcon(item.condition || summary || (Number(item.precipitation_probability) > 60 ? 'rain' : 'partly cloudy'));
+      const iconName = item.icon || getWeatherIcon(item.condition || summary || (Number(item.precipitation_probability) > 60 ? 'rain' : 'partly cloudy'));
       const temp = formatNumber(item.temperature);
       const precip = item.precipitation_probability;
 

@@ -34,6 +34,12 @@ class AccuWeatherScraper:
             f"{self.location['slug']}/{self.location['location_key']}/"
             f"air-quality-index/{self.location['location_key']}"
         )
+        self.current_weather_url = (
+            f"https://www.accuweather.com/"
+            f"{self.location['locale']}/{self.location['country']}/"
+            f"{self.location['slug']}/{self.location['location_key']}/"
+            f"current-weather/{self.location['location_key']}"
+        )
         self.allergy_url = (
             f"https://www.accuweather.com/"
             f"{self.location['locale']}/{self.location['country']}/"
@@ -205,6 +211,68 @@ class AccuWeatherScraper:
     def _meta(soup: BeautifulSoup, name: str) -> str | None:
         node = soup.select_one(f'meta[name="{name}"]')
         return node.get("content") if node else None
+
+    @staticmethod
+    def _icon_from_code(code: str | int | None) -> str | None:
+        number = None
+        if isinstance(code, int):
+            number = code
+        elif isinstance(code, str):
+            match = re.search(r"(\d{1,2})", code)
+            if match:
+                number = int(match.group(1))
+
+        if number is None:
+            return None
+
+        if number in {1, 2, 30}:
+            return "mdi:weather-sunny"
+        if number in {3, 4, 5, 6, 7, 8}:
+            return "mdi:weather-partly-cloudy"
+        if number == 11:
+            return "mdi:weather-fog"
+        if number in {12, 13, 14, 18, 19, 20, 21, 24, 25, 26, 29}:
+            return "mdi:weather-rainy"
+        if number in {15, 16, 17, 41, 42}:
+            return "mdi:weather-lightning-rainy"
+        if number in {22, 23, 43, 44}:
+            return "mdi:weather-snowy"
+        if number == 32:
+            return "mdi:weather-windy"
+        if number in {33, 34}:
+            return "mdi:weather-night"
+        if number in {35, 36, 37, 38, 39, 40}:
+            return "mdi:weather-night-partly-cloudy"
+
+        return "mdi:help-circle"
+
+    @staticmethod
+    def _extract_icon_code(src: str | None) -> int | None:
+        if not src:
+            return None
+
+        match = re.search(r"/([0-9]{1,2})\.svg", src)
+        return int(match.group(1)) if match else None
+
+    @staticmethod
+    def _detail_map(nodes: list[Any], label_selector: str = ":scope") -> dict[str, str]:
+        detail_values: dict[str, str] = {}
+        for node in nodes:
+            label = None
+            value = None
+
+            if label_selector == ":scope":
+                parts = list(node.stripped_strings)
+                if len(parts) >= 2:
+                    label, value = parts[0], parts[-1]
+            else:
+                label = AccuWeatherScraper._text(node, [label_selector])
+                value = AccuWeatherScraper._text(node, [".value", "div:last-child"])
+
+            if label and value:
+                detail_values[AccuWeatherScraper._normalize_label(label)] = value
+
+        return detail_values
 
     @staticmethod
     def _parse_forecast_date(date_token: str, anchor: date, previous: date | None) -> date | None:
@@ -386,6 +454,62 @@ class AccuWeatherScraper:
             "page_title": self._meta(soup, "title"),
         }
 
+    def _parse_current_weather(self, html: str) -> dict[str, Any]:
+        soup = BeautifulSoup(html, "html.parser")
+        page_text = " ".join(soup.stripped_strings)
+
+        detail_values = self._detail_map(list(soup.select(".current-weather-details .detail-item")))
+        mobile_values = self._detail_map(list(soup.select(".panels .panel-item")))
+        detail_values.update(mobile_values)
+
+        icon_node = soup.select_one(".current-weather-info img.icon, .current-weather-info img.weather-icon, img.header-weather-icon")
+        icon_code = self._extract_icon_code(icon_node.get("src") if icon_node else None)
+
+        temperature_text = self._text(soup, [
+            ".current-weather-info .display-temp",
+            ".current-weather-info .temp",
+            ".display-temp",
+            ".temp .display-temp",
+        ])
+
+        if not temperature_text:
+            temperature_text = self._text(soup, [".temp"])
+
+        realfeel_text = self._extract_label_value(detail_values, "realfeel®", "realfeel", "realfeel temperature")
+        if not realfeel_text:
+            realfeel_match = re.search(r"RealFeel®?\s*(-?\d+(?:[.,]\d+)?)°?", page_text, re.IGNORECASE)
+            realfeel_text = realfeel_match.group(1) if realfeel_match else None
+
+        condition = self._text(soup, [".phrase", ".current-weather-info .phrase"])
+
+        result: dict[str, Any] = {
+            "temperature": self._number(temperature_text),
+            "realfeel_temperature": self._number(realfeel_text),
+            "humidity": self._number(self._extract_label_value(detail_values, "kelembapan")),
+            "wind_speed": self._number(self._extract_label_value(detail_values, "angin")),
+            "gust_speed": self._number(self._extract_label_value(detail_values, "angin kencang")),
+            "uv_index": self._int(self._extract_label_value(detail_values, "indeks uv")),
+            "precipitation_probability": self._number(self._extract_label_value(detail_values, "probabilitas presipitasi")),
+            "cloud_cover": self._number(self._extract_label_value(detail_values, "tutupan awan")),
+            "pressure": self._number(self._extract_label_value(detail_values, "tekanan")),
+            "visibility": self._number(self._extract_label_value(detail_values, "jarak pandang")),
+            "dew_point": self._number(self._extract_label_value(detail_values, "titik embun")),
+            "cloud_ceiling": self._number(self._extract_label_value(detail_values, "ketinggian awan")),
+            "condition": condition,
+            "icon_code": icon_code,
+            "icon": self._icon_from_code(icon_code) or self._normalize_condition(condition) or "mdi:help-circle",
+        }
+
+        ad_info_match = re.search(r"adInfo:\s*\{(?P<body>[^}]+)\}", html)
+        if ad_info_match:
+            body = ad_info_match.group("body")
+            if result["uv_index"] is None:
+                uv_match = re.search(r'"cuuv":"(?P<value>\d+)"', body)
+                if uv_match:
+                    result["uv_index"] = self._int(uv_match.group("value"))
+
+        return result
+
     def _parse_air_quality(self, html: str) -> dict[str, Any]:
         soup = BeautifulSoup(html, "html.parser")
         text = " ".join(soup.stripped_strings)
@@ -531,6 +655,8 @@ class AccuWeatherScraper:
             time_label = self._text(item, [".hourly-list__list__item-time"])
             temperature_text = self._text(item, [".hourly-list__list__item-temp"])
             precip_text = self._text(item, [".hourly-list__list__item-precip span"])
+            icon_node = item.select_one("img.hourly-list__list__item-icon, img")
+            icon_code = self._extract_icon_code(icon_node.get("src") if icon_node else None)
             href = item.get("href", "")
 
             forecast_dt: datetime | None = None
@@ -554,6 +680,8 @@ class AccuWeatherScraper:
                     "precipitation_probability": self._int(precip_text) if precip_text else None,
                     "summary": None,
                     "condition": None,
+                    "icon_code": icon_code,
+                    "icon": self._icon_from_code(icon_code),
                 }
             )
 
@@ -570,6 +698,8 @@ class AccuWeatherScraper:
             low_text = self._text(item, [".temp-lo", ".lo", ".temp .temp-lo"])
             summary = self._text(item, [".phrase", ".condition"])
             precip_text = self._text(item, [".precip", ".precipitation-probability"])
+            icon_node = item.select_one("img.icon, img.day-icon, img.night-icon")
+            icon_code = self._extract_icon_code(icon_node.get("src") if icon_node else None)
 
             if not label:
                 continue
@@ -595,6 +725,8 @@ class AccuWeatherScraper:
                     "precipitation_probability": self._int(precip_text),
                     "summary": summary,
                     "date_label": label,
+                    "icon_code": icon_code,
+                    "icon": self._icon_from_code(icon_code),
                 }
             )
 
@@ -602,6 +734,7 @@ class AccuWeatherScraper:
 
     async def async_fetch(self) -> AccuWeatherData:
         weather_html = await self._get_html(self.weather_url)
+        current_html = await self._get_html(self.current_weather_url)
         air_html = await self._get_html(self.air_quality_url)
         try:
             allergy_html = await self._get_html(self.allergy_url)
@@ -609,6 +742,7 @@ class AccuWeatherScraper:
             allergy_html = ""
 
         weather = self._parse_weather(weather_html)
+        current_weather = self._parse_current_weather(current_html)
         air = self._parse_air_quality(air_html)
         hourly_forecast = self._parse_hourly_forecast(weather_html)
         forecast_daily = self._parse_daily_forecast(weather_html)
@@ -616,6 +750,7 @@ class AccuWeatherScraper:
 
         values = {
             **{k: v for k, v in weather.items() if k != "condition" and k != "page_title"},
+            **{k: v for k, v in current_weather.items() if k != "condition"},
             **air,
         }
 
@@ -628,12 +763,15 @@ class AccuWeatherScraper:
             values=values,
             attributes={
                 "weather_url": self.weather_url,
+                "current_weather_url": self.current_weather_url,
                 "air_quality_url": self.air_quality_url,
                 "allergy_url": self.allergy_url,
                 "locale": self.location["locale"],
                 "country": self.location["country"],
                 "location_slug": self.location["slug"],
                 "source": "AccuWeather HTML",
+                "icon": current_weather.get("icon"),
+                "icon_code": current_weather.get("icon_code"),
             },
             daily_forecast=forecast_daily,
             hourly_forecast=hourly_forecast,
