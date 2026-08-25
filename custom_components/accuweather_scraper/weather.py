@@ -67,6 +67,30 @@ class AccuWeatherWeather(CoordinatorEntity[AccuWeatherCoordinator], WeatherEntit
         return self.coordinator.data.values.get("realfeel_temperature")
 
     @property
+    def native_dew_point(self):
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.values.get("dew_point")
+
+    @property
+    def native_pressure(self):
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.values.get("pressure")
+
+    @property
+    def native_visibility(self):
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.values.get("visibility")
+
+    @property
+    def native_wind_gust_speed(self):
+        if not self.coordinator.data:
+            return None
+        return self.coordinator.data.values.get("gust_speed")
+
+    @property
     def humidity(self):
         if not self.coordinator.data:
             return None
@@ -101,12 +125,41 @@ class AccuWeatherWeather(CoordinatorEntity[AccuWeatherCoordinator], WeatherEntit
     async def async_forecast_daily(self) -> list[Forecast] | None:
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.daily_forecast or None
+        return [self._forecast_payload(item) for item in self.coordinator.data.daily_forecast] or None
 
     async def async_forecast_hourly(self) -> list[Forecast] | None:
         if not self.coordinator.data:
             return None
-        return self.coordinator.data.hourly_forecast or None
+        return [self._forecast_payload(item) for item in self.coordinator.data.hourly_forecast] or None
+
+    @staticmethod
+    def _forecast_payload(item: dict[str, object]) -> dict[str, object]:
+        payload = {key: value for key, value in item.items() if value is not None}
+
+        timestamp = payload.get("datetime")
+        if isinstance(timestamp, datetime):
+            payload["datetime"] = timestamp.isoformat()
+
+        field_map = {
+            "temperature": "native_temperature",
+            "templow": "native_templow",
+            "wind_speed": "native_wind_speed",
+            "gust_speed": "native_wind_gust_speed",
+            "apparent_temperature": "native_apparent_temperature",
+            "dew_point": "native_dew_point",
+            "pressure": "native_pressure",
+            "precipitation": "native_precipitation",
+            "cloud_cover": "cloud_coverage",
+        }
+
+        for legacy_key, native_key in field_map.items():
+            if legacy_key in payload:
+                payload[native_key] = payload.pop(legacy_key)
+
+        if "summary" in payload and "condition" not in payload:
+            payload["condition"] = payload["summary"]
+
+        return payload
 
     @property
     def extra_state_attributes(self) -> dict[str, object]:

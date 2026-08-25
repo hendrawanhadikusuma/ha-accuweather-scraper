@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta, timezone
 import re
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from bs4 import BeautifulSoup
 from aiohttp import ClientSession
@@ -154,6 +154,54 @@ class AccuWeatherScraper:
         return None
 
     @staticmethod
+    def _normalize_label(text: str) -> str:
+        return re.sub(r"\s+", " ", text).strip().casefold()
+
+    @staticmethod
+    def _first_number(text: str | None) -> float | None:
+        if not text:
+            return None
+
+        match = re.search(r"-?\d+(?:[.,]\d+)?", text.replace(",", "."))
+        return float(match.group()) if match else None
+
+    @staticmethod
+    def _extract_label_value(values: dict[str, str], *labels: str) -> str | None:
+        for label in labels:
+            value = values.get(label)
+            if value:
+                return value
+        return None
+
+    @staticmethod
+    def _forecast_payload(item: dict[str, Any]) -> dict[str, Any]:
+        payload = {key: value for key, value in item.items() if value is not None}
+        timestamp = payload.get("datetime")
+        if isinstance(timestamp, datetime):
+            payload["datetime"] = timestamp.isoformat()
+
+        field_map = {
+            "temperature": "native_temperature",
+            "templow": "native_templow",
+            "wind_speed": "native_wind_speed",
+            "gust_speed": "native_wind_gust_speed",
+            "apparent_temperature": "native_apparent_temperature",
+            "dew_point": "native_dew_point",
+            "pressure": "native_pressure",
+            "precipitation": "native_precipitation",
+            "cloud_cover": "cloud_coverage",
+        }
+
+        for legacy_key, native_key in field_map.items():
+            if legacy_key in payload:
+                payload[native_key] = payload.pop(legacy_key)
+
+        if "summary" in payload and "condition" not in payload:
+            payload["condition"] = payload["summary"]
+
+        return payload
+
+    @staticmethod
     def _meta(soup: BeautifulSoup, name: str) -> str | None:
         node = soup.select_one(f'meta[name="{name}"]')
         return node.get("content") if node else None
@@ -196,6 +244,14 @@ class AccuWeatherScraper:
 
     def _parse_weather(self, html: str) -> dict[str, Any]:
         soup = BeautifulSoup(html, "html.parser")
+        page_text = " ".join(soup.stripped_strings)
+
+        detail_values: dict[str, str] = {}
+        for detail in soup.select(".cur-con-weather-card__panel .detail"):
+            label = self._text(detail, [".label"])
+            value = self._text(detail, [".value"])
+            if label and value:
+                detail_values[self._normalize_label(label)] = value
 
         temperature_text = self._text(soup, [
             ".current-weather-info .temp",
@@ -203,11 +259,22 @@ class AccuWeatherScraper:
             "[class*='current-weather'] .temp",
         ])
 
+        if not temperature_text:
+            temperature_text = self._text(soup, [".cur-con-weather-card .temp"])
+
         realfeel_text = self._text(soup, [
             ".real-feel",
             "[class*='realfeel']",
             "[class*='real-feel']",
         ])
+
+        if not realfeel_text:
+            realfeel_match = re.search(
+                r"RealFeel(?:\s*Shade)?(?:™|®)?\s*(?:Temperature)?\s*(-?\d+(?:[.,]\d+)?)°?",
+                page_text,
+                re.IGNORECASE,
+            )
+            realfeel_text = realfeel_match.group(1) if realfeel_match else None
 
         condition = self._text(soup, [
             ".current-weather-info .phrase",
@@ -215,20 +282,37 @@ class AccuWeatherScraper:
             "[class*='current-weather'] .phrase",
         ])
 
+        if not condition:
+            condition_match = re.search(
+                r"Cuaca Saat Ini.*?\d{1,2}[:.]\d{2}.*?\d+°.*?RealFeel.*?\d+°\s+(?P<condition>.+?)\s+Detail Lainnya",
+                page_text,
+                re.IGNORECASE,
+            )
+            condition = condition_match.group("condition") if condition_match else None
+
         humidity_text = self._text(soup, [
             "[class*='humidity'] .value",
             "[class*='humidity']",
         ])
+
+        if not humidity_text:
+            humidity_text = self._extract_label_value(detail_values, "kelembapan", "humidity")
 
         wind_text = self._text(soup, [
             "[class*='wind'] .value",
             "[class*='wind']",
         ])
 
+        if not wind_text:
+            wind_text = self._extract_label_value(detail_values, "angin", "wind")
+
         uv_text = self._text(soup, [
             "[class*='uv-index'] .value",
             "[class*='uv'] .value",
         ])
+
+        if not uv_text:
+            uv_text = self._extract_label_value(detail_values, "indeks uv", "uv index")
 
         precip_text = self._text(soup, [
             "[class*='precipitation'] .value",
@@ -240,15 +324,24 @@ class AccuWeatherScraper:
             "[class*='cloud'] .value",
         ])
 
+        if not cloud_text:
+            cloud_text = self._extract_label_value(detail_values, "tutup awan", "cloud cover")
+
         pressure_text = self._text(soup, [
             "[class*='pressure'] .value",
             "[class*='pressure']",
         ])
 
+        if not pressure_text:
+            pressure_text = self._extract_label_value(detail_values, "tekanan", "pressure")
+
         visibility_text = self._text(soup, [
             "[class*='visibility'] .value",
             "[class*='visibility']",
         ])
+
+        if not visibility_text:
+            visibility_text = self._extract_label_value(detail_values, "visibilitas", "visibility")
 
         dew_point_text = self._text(soup, [
             "[class*='dew-point'] .value",
@@ -257,15 +350,24 @@ class AccuWeatherScraper:
             "[class*='dewpoint']",
         ])
 
+        if not dew_point_text:
+            dew_point_text = self._extract_label_value(detail_values, "titik embun", "dew point")
+
         gust_text = self._text(soup, [
             "[class*='gust'] .value",
             "[class*='gust']",
         ])
 
+        if not gust_text:
+            gust_text = self._extract_label_value(detail_values, "angin kencang", "wind gust")
+
         cloud_ceiling_text = self._text(soup, [
             "[class*='cloud-ceiling'] .value",
             "[class*='cloud-ceiling']",
         ])
+
+        if not cloud_ceiling_text:
+            cloud_ceiling_text = self._extract_label_value(detail_values, "cloud ceiling", "langit-langit awan")
 
         return {
             "temperature": self._number(temperature_text),
@@ -298,26 +400,60 @@ class AccuWeatherScraper:
             "o3": None,
         }
 
-        # First try semantic labels around cards/rows.
-        patterns = {
-            "air_quality_index": [
-                r"Air Quality Index\s*[:\-]?\s*(\d+)",
-                r"AQI\s*[:\-]?\s*(\d+)",
-            ],
-            "pm25": [r"PM2\.5\s*[:\-]?\s*([\d.,]+)"],
-            "pm10": [r"PM10\s*[:\-]?\s*([\d.,]+)"],
-            "no2": [r"NO2\s*[:\-]?\s*([\d.,]+)"],
-            "so2": [r"SO2\s*[:\-]?\s*([\d.,]+)"],
-            "co": [r"CO\s*[:\-]?\s*([\d.,]+)"],
-            "o3": [r"O3\s*[:\-]?\s*([\d.,]+)"],
+        current_value = self._text(soup, [
+            ".air-quality-content .aq-number",
+            ".air-quality-module .aq-number",
+            ".aq-number",
+        ])
+        result["air_quality_index"] = self._int(current_value)
+
+        pollutant_map = {
+            "airQualityPollutantPM2_5": "pm25",
+            "airQualityPollutantPM10": "pm10",
+            "airQualityPollutantNO2": "no2",
+            "airQualityPollutantSO2": "so2",
+            "airQualityPollutantCO": "co",
+            "airQualityPollutantO3": "o3",
         }
 
-        for key, expressions in patterns.items():
-            for expression in expressions:
+        for pollutant in soup.select(".air-quality-current-pollutants .air-quality-pollutant"):
+            data_qa = pollutant.get("data-qa", "")
+            for token, key in pollutant_map.items():
+                if token in data_qa:
+                    value = self._text(pollutant, [".pollutant-index"])
+                    if value is None:
+                        value = self._text(pollutant, [".pollutant-concentration"])
+                    result[key] = self._int(value)
+                    break
+
+        if result["air_quality_index"] is None:
+            patterns = [
+                r"AQI\s*[:\-]?\s*(\d+)",
+                r"Indeks Kualitas Udara\s*[:\-]?\s*(\d+)",
+            ]
+            for expression in patterns:
                 match = re.search(expression, text, re.IGNORECASE)
                 if match:
-                    result[key] = self._number(match.group(1))
+                    result["air_quality_index"] = self._int(match.group(1))
                     break
+
+        if any(value is None for key, value in result.items() if key != "air_quality_index"):
+            fallback_patterns = {
+                "pm25": [r"PM2\.?5\s*(\d+(?:[.,]\d+)?)"],
+                "pm10": [r"PM10\s*(\d+(?:[.,]\d+)?)"],
+                "no2": [r"NO2\s*(\d+(?:[.,]\d+)?)"],
+                "so2": [r"SO2\s*(\d+(?:[.,]\d+)?)"],
+                "co": [r"CO\s*(\d+(?:[.,]\d+)?)"],
+                "o3": [r"O3\s*(\d+(?:[.,]\d+)?)"],
+            }
+            for key, expressions in fallback_patterns.items():
+                if result[key] is not None:
+                    continue
+                for expression in expressions:
+                    match = re.search(expression, text, re.IGNORECASE)
+                    if match:
+                        result[key] = self._int(match.group(1))
+                        break
 
         return result
 
@@ -325,25 +461,42 @@ class AccuWeatherScraper:
         soup = BeautifulSoup(html, "html.parser")
         text = " ".join(soup.stripped_strings)
 
-        allergen = self._text(soup, [
-            "h1",
-            "h2",
-            "[class*='title']",
-        ])
+        allergen = None
+        risk = None
+        safety_tips = None
+
+        slug_match = re.search(r'\{[^{}]*"slug":"dust-dander"[^{}]*\}', html)
+        if slug_match:
+            block = slug_match.group(0)
+            allergen_match = re.search(r'"localizedName":"(?P<value>.*?)"', block)
+            risk_match = re.search(r'"category":"(?P<value>.*?)"', block)
+            safety_match = re.search(r'"categoryPhrase":"(?P<value>.*?)"', block)
+            if allergen_match:
+                allergen = allergen_match.group("value").replace("\\u0026", "&")
+            if risk_match:
+                risk = risk_match.group("value")
+            if safety_match:
+                safety_tips = safety_match.group("value")
+
+        if not allergen:
+            allergen = self._text(soup, ["h1", "h2", "[class*='title']"])
 
         if allergen:
             allergen = allergen.replace("Allergen Forecast", "").strip()
 
-        scale_match = re.search(
-            r"The risk of (?:tree|ragweed|grass|mold|dust|dander).+? is (extremely high|very high|high|moderate|low)",
-            text,
-            re.IGNORECASE,
-        )
+        if not risk:
+            scale_match = re.search(
+                r"(?:risk of|risiko)\s+.+?\s+is\s+(extremely high|very high|high|moderate|low|sangat tinggi|tinggi|sedang|rendah)",
+                text,
+                re.IGNORECASE,
+            )
+            if scale_match:
+                risk = scale_match.group(1).title()
 
-        safety_tips = None
-        safety_match = re.search(r"Safety Tips\s*(.+?)(?:\s+[A-Z][A-Za-z ]+\s|$)", text, re.IGNORECASE)
-        if safety_match:
-            safety_tips = safety_match.group(1).strip()
+        if not safety_tips:
+            safety_match = re.search(r"Safety Tips\s*(.+?)(?:\s+[A-Z][A-Za-z ]+\s|$)", text, re.IGNORECASE)
+            if safety_match:
+                safety_tips = safety_match.group(1).strip()
 
         wind_text = None
         wind_match = re.search(r"Average Wind\s*([\d.,]+\s*km/h)", text, re.IGNORECASE)
@@ -362,7 +515,7 @@ class AccuWeatherScraper:
 
         return {
             "allergen": allergen,
-            "risk": scale_match.group(1).title() if scale_match else None,
+            "risk": risk,
             "safety_tips": safety_tips,
             "average_wind": wind_text,
             "max_wind_gusts": gust_text,
@@ -371,30 +524,34 @@ class AccuWeatherScraper:
 
     def _parse_hourly_forecast(self, html: str) -> list[dict[str, Any]]:
         soup = BeautifulSoup(html, "html.parser")
-        text = " ".join(soup.stripped_strings)
-
-        pattern = re.compile(
-            r"(?P<time>\d{1,2}:\d{2})\s+(?P<temp>-?\d+(?:[.,]\d+)?)°(?:\s+(?P<precip>\d{1,3})%)?",
-            re.IGNORECASE,
-        )
-
         forecasts: list[dict[str, Any]] = []
-        anchor = datetime.now().astimezone().replace(minute=0, second=0, microsecond=0)
         previous_dt: datetime | None = None
 
-        for match in pattern.finditer(text):
-            forecast_dt = self._parse_forecast_datetime(match.group("time"), anchor, previous_dt)
+        for item in soup.select(".hourly-list__list__item"):
+            time_label = self._text(item, [".hourly-list__list__item-time"])
+            temperature_text = self._text(item, [".hourly-list__list__item-temp"])
+            precip_text = self._text(item, [".hourly-list__list__item-precip span"])
+            href = item.get("href", "")
+
+            forecast_dt: datetime | None = None
+            query = parse_qs(urlparse(href).query)
+            hour_value = query.get("hour", [None])[0]
+            if hour_value and hour_value.isdigit():
+                forecast_dt = datetime.fromtimestamp(int(hour_value), tz=timezone.utc)
+            elif time_label:
+                anchor = datetime.now().astimezone().replace(minute=0, second=0, microsecond=0)
+                forecast_dt = self._parse_forecast_datetime(time_label, anchor, previous_dt)
+
             if forecast_dt is None:
                 continue
 
             previous_dt = forecast_dt
-            precip = match.group("precip")
             forecasts.append(
                 {
                     "datetime": forecast_dt,
-                    "time_label": match.group("time"),
-                    "temperature": self._number(match.group("temp")),
-                    "precipitation_probability": self._int(precip) if precip else None,
+                    "time_label": time_label,
+                    "temperature": self._number(temperature_text),
+                    "precipitation_probability": self._int(precip_text) if precip_text else None,
                     "summary": None,
                     "condition": None,
                 }
@@ -404,35 +561,40 @@ class AccuWeatherScraper:
 
     def _parse_daily_forecast(self, html: str) -> list[dict[str, Any]]:
         soup = BeautifulSoup(html, "html.parser")
-        text = " ".join(soup.stripped_strings)
-
-        forecast_pattern = re.compile(
-            r"(?P<label>.+?)\s+(?P<date>\d{1,2}/\d{1,2})\s+"
-            r"(?P<high>-?\d+(?:[.,]\d+)?)°\s+(?P<low>-?\d+(?:[.,]\d+)?)°\s+"
-            r"(?P<summary>.+?)\s+(?P<precip>\d{1,3})%",
-            re.IGNORECASE,
-        )
-
         forecasts: list[dict[str, Any]] = []
-        anchor = date.today()
-        previous_date: date | None = None
+        for item in soup.select(".daily-list-item"):
+            day_label = self._text(item, [".date .day"])
+            date_text = self._text(item, [".date p:last-child", ".date"])
+            label = " ".join(part for part in [day_label, date_text] if part)
+            high_text = self._text(item, [".temp-hi", ".hi", ".temp .temp-hi"])
+            low_text = self._text(item, [".temp-lo", ".lo", ".temp .temp-lo"])
+            summary = self._text(item, [".phrase", ".condition"])
+            precip_text = self._text(item, [".precip", ".precipitation-probability"])
 
-        for match in forecast_pattern.finditer(text):
-            forecast_date = self._parse_forecast_date(match.group("date"), anchor, previous_date)
+            if not label:
+                continue
+
+            date_match = re.search(r"(\d{1,2}/\d{1,2})", date_text or label)
+            if date_match:
+                forecast_date = self._parse_forecast_date(date_match.group(1), date.today(), forecasts[-1]["datetime"].date() if forecasts else None)
+            else:
+                forecast_date = None
+
             if forecast_date is None:
                 continue
 
-            previous_date = forecast_date
-            summary = match.group("summary").strip()
+            if not summary:
+                summary = self._text(item, [".phrase"])
 
             forecasts.append(
                 {
                     "datetime": datetime.combine(forecast_date, time.min, tzinfo=timezone.utc),
                     "condition": self._normalize_condition(summary),
-                    "temperature": self._number(match.group("high")),
-                    "templow": self._number(match.group("low")),
-                    "precipitation_probability": self._int(match.group("precip")),
+                    "temperature": self._number(high_text),
+                    "templow": self._number(low_text),
+                    "precipitation_probability": self._int(precip_text),
                     "summary": summary,
+                    "date_label": label,
                 }
             )
 
