@@ -247,6 +247,67 @@ class AccuWeatherScraper:
         return "mdi:help-circle"
 
     @staticmethod
+    def _condition_from_icon_code(code: str | int | None) -> str | None:
+        number = None
+        if isinstance(code, int):
+            number = code
+        elif isinstance(code, str):
+            match = re.search(r"(\d{1,2})", code)
+            if match:
+                number = int(match.group(1))
+
+        if number is None:
+            return None
+
+        if number in {1, 2, 30}:
+            return "sunny"
+        if number in {3, 4, 5, 6, 7, 8}:
+            return "partlycloudy"
+        if number == 11:
+            return "fog"
+        if number in {12, 13, 14, 18, 19, 20, 21, 24, 25, 26, 29}:
+            return "rainy"
+        if number in {15, 16, 17, 41, 42}:
+            return "lightning-rainy"
+        if number in {22, 23, 43, 44}:
+            return "snowy"
+        if number == 32:
+            return "windy"
+        if number in {33, 34}:
+            return "clear-night"
+        if number in {35, 36, 37, 38, 39, 40}:
+            return "partlycloudy"
+
+        return None
+
+    @staticmethod
+    def _icon_from_condition(condition: str | None) -> str | None:
+        if not condition:
+            return None
+
+        normalized = condition.casefold()
+        if normalized == "sunny":
+            return "mdi:weather-sunny"
+        if normalized == "partlycloudy":
+            return "mdi:weather-partly-cloudy"
+        if normalized == "cloudy":
+            return "mdi:weather-cloudy"
+        if normalized == "rainy":
+            return "mdi:weather-rainy"
+        if normalized == "lightning-rainy":
+            return "mdi:weather-lightning-rainy"
+        if normalized == "snowy":
+            return "mdi:weather-snowy"
+        if normalized == "fog":
+            return "mdi:weather-fog"
+        if normalized == "windy":
+            return "mdi:weather-windy"
+        if normalized == "clear-night":
+            return "mdi:weather-night"
+
+        return None
+
+    @staticmethod
     def _extract_icon_code(src: str | None) -> int | None:
         if not src:
             return None
@@ -685,6 +746,13 @@ class AccuWeatherScraper:
             precip_text = self._text(item, [".hourly-list__list__item-precip span"])
             icon_node = item.select_one("img.hourly-list__list__item-icon, img")
             icon_code = self._extract_icon_code(icon_node.get("src") if icon_node else None)
+            condition = self._condition_from_icon_code(icon_code)
+            precipitation_probability = self._int(precip_text) if precip_text else None
+
+            if condition is None and precipitation_probability is not None and precipitation_probability >= 60:
+                condition = "rainy"
+
+            summary = condition.replace("-", " ") if condition else None
             href = item.get("href", "")
 
             forecast_dt: datetime | None = None
@@ -705,11 +773,11 @@ class AccuWeatherScraper:
                     "datetime": forecast_dt,
                     "time_label": time_label,
                     "temperature": self._number(temperature_text),
-                    "precipitation_probability": self._int(precip_text) if precip_text else None,
-                    "summary": None,
-                    "condition": None,
+                    "precipitation_probability": precipitation_probability,
+                    "summary": summary,
+                    "condition": condition,
                     "icon_code": icon_code,
-                    "icon": self._icon_from_code(icon_code),
+                    "icon": self._icon_from_code(icon_code) or self._icon_from_condition(condition),
                 }
             )
 
