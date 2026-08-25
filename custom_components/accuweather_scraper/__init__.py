@@ -6,7 +6,7 @@ from homeassistant.core import HomeAssistant
 from .const import DOMAIN
 from .coordinator import AccuWeatherCoordinator
 
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "weather"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
