@@ -263,6 +263,7 @@ class AccuWeatherCard extends HTMLElement {
     const aqiGaugeFill = Number.isFinite(Number(aqiValue))
       ? Math.min(100, (Number(aqiValue) / 300) * 100)
       : 0;
+    const aqiLabelColor = aqi.color;
 
     const detailMetrics = [
       ['Feels like', apparent, temperatureUnit],
@@ -333,7 +334,6 @@ class AccuWeatherCard extends HTMLElement {
         <section class="panel aqi-panel">
           <div class="section-title">
             <span>Air Quality</span>
-            <span>${escapeHtml(aqi.label)}</span>
           </div>
           <div class="aqi-layout">
             <div class="gauge" style="background: conic-gradient(${aqi.color} 0% ${aqiGaugeFill}%, rgba(255,255,255,0.08) ${aqiGaugeFill}% 100%);">
@@ -352,6 +352,10 @@ class AccuWeatherCard extends HTMLElement {
               `).join('')}
               ${!pollutantRows.length ? '<div class="empty-inline">No pollutant data available.</div>' : ''}
             </div>
+          </div>
+          <div class="aqi-footer">
+            <div class="aqi-footer-key">AIR QUALITY FORECAST</div>
+            <div class="aqi-footer-value" style="color: ${aqiLabelColor};">${escapeHtml(aqi.label)}</div>
           </div>
         </section>
       `
@@ -584,12 +588,15 @@ class AccuWeatherCard extends HTMLElement {
             border-radius: 50%;
             display: grid;
             place-items: center;
+            padding: 14px;
+            box-sizing: border-box;
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+            position: relative;
           }
 
           .gauge-inner {
-            width: 116px;
-            height: 116px;
+            width: 100%;
+            height: 100%;
             border-radius: 50%;
             background: rgba(10, 15, 30, 0.88);
             display: grid;
@@ -597,6 +604,8 @@ class AccuWeatherCard extends HTMLElement {
             text-align: center;
             padding: 12px;
             box-sizing: border-box;
+            position: relative;
+            z-index: 1;
           }
 
           .gauge-label {
@@ -621,15 +630,18 @@ class AccuWeatherCard extends HTMLElement {
 
           .pollutant-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            align-content: start;
           }
 
           .pollutant {
-            border-radius: 14px;
-            padding: 10px 12px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 12px;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
           }
 
           .pollutant-name {
@@ -637,7 +649,7 @@ class AccuWeatherCard extends HTMLElement {
             opacity: 0.68;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            margin-bottom: 4px;
+            margin-bottom: 0;
           }
 
           .pollutant-value {
@@ -648,6 +660,25 @@ class AccuWeatherCard extends HTMLElement {
           .pollutant-value span {
             font-weight: 500;
             opacity: 0.75;
+          }
+
+          .aqi-footer {
+            display: inline-flex;
+            gap: 14px;
+            margin-top: 14px;
+            align-items: center;
+          }
+
+          .aqi-footer-key {
+            font-size: 0.72rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            opacity: 0.68;
+          }
+
+          .aqi-footer-value {
+            font-size: 1rem;
+            font-weight: 800;
           }
 
           .allergy-body {
