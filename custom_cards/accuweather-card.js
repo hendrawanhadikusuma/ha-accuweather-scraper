@@ -436,7 +436,7 @@ class AccuWeatherCard extends HTMLElement {
 
           .dashboard {
             display: grid;
-            grid-template-columns: repeat(12, minmax(0, 1fr));
+            grid-template-columns: repeat(12, 1fr);
             gap: 16px;
           }
 
@@ -446,7 +446,6 @@ class AccuWeatherCard extends HTMLElement {
             background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-sizing: border-box;
-            min-width: 0;
           }
 
           .weather-panel {
@@ -477,7 +476,7 @@ class AccuWeatherCard extends HTMLElement {
 
           .hero {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-columns: 1fr auto;
             gap: 12px;
             align-items: center;
             margin-bottom: 14px;
@@ -537,12 +536,12 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .metric-grid-primary {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             margin-bottom: 12px;
           }
 
           .metric-grid-secondary {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(3, 1fr);
           }
 
           .metric {
@@ -550,7 +549,6 @@ class AccuWeatherCard extends HTMLElement {
             padding: 10px 12px;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.05);
-            min-width: 0;
           }
 
           .metric-label {
@@ -574,7 +572,7 @@ class AccuWeatherCard extends HTMLElement {
 
           .aqi-layout {
             display: grid;
-            grid-template-columns: 170px minmax(0, 1fr);
+            grid-template-columns: 170px 1fr;
             gap: 14px;
             align-items: center;
           }
@@ -658,7 +656,7 @@ class AccuWeatherCard extends HTMLElement {
 
           .pollutant {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) max-content;
+            grid-template-columns: 1fr max-content;
             gap: 12px;
             align-items: center;
             padding: 8px 0;
@@ -671,7 +669,6 @@ class AccuWeatherCard extends HTMLElement {
             text-transform: uppercase;
             letter-spacing: 0.08em;
             margin-bottom: 0;
-            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -795,7 +792,7 @@ class AccuWeatherCard extends HTMLElement {
 
           .sensor-list {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 10px;
           }
 
