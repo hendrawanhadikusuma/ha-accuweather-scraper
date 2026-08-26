@@ -126,6 +126,37 @@ function forecastIcon(item, fallbackCondition = '') {
   return item?.icon || getWeatherIcon(item?.condition || forecastSummary(item) || fallbackCondition);
 }
 
+function gaugeStatusFontSize(label) {
+  const text = String(label || '').trim();
+  const length = text.length;
+
+  if (!length) {
+    return 16;
+  }
+
+  if (length <= 8) {
+    return 18;
+  }
+
+  if (length <= 12) {
+    return 17;
+  }
+
+  if (length <= 18) {
+    return 16;
+  }
+
+  if (length <= 24) {
+    return 15;
+  }
+
+  if (length <= 32) {
+    return 14;
+  }
+
+  return 13;
+}
+
 class AccuWeatherCard extends HTMLElement {
   setConfig(config) {
     if (!config || !config.entity) {
@@ -290,6 +321,7 @@ class AccuWeatherCard extends HTMLElement {
 
     const weatherSummary = pickValue(attrs.condition_raw, attrs.summary, conditionLabel);
     const aqiPanelColumn = this._config.show_current === false ? '1 / -1' : 'span 5';
+    const aqiStatusSize = gaugeStatusFontSize(aqi.label);
     const weatherForecastPanel = `
       <section class="panel weather-panel">
         <div class="section-title">
@@ -344,7 +376,7 @@ class AccuWeatherCard extends HTMLElement {
                   <div class="gauge-value" style="color: ${aqiLabelColor};">${escapeHtml(formatNumber(aqiValue) ?? '--')}</div>
                 </div>
               </div>
-              <div class="gauge-status" style="color: ${aqiLabelColor};">${escapeHtml(aqi.label)}</div>
+              <div class="gauge-status" style="color: ${aqiLabelColor}; font-size: ${aqiStatusSize}px;">${escapeHtml(aqi.label)}</div>
             </div>
             <div class="pollutant-grid">
               ${pollutantRows.map(([name, value, unit]) => `
@@ -642,10 +674,12 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .gauge-status {
-            font-size: 0.78rem;
             font-weight: 700;
             text-align: center;
-            white-space: nowrap;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.1;
+            max-width: 170px;
           }
 
           .pollutant-grid {
@@ -659,7 +693,7 @@ class AccuWeatherCard extends HTMLElement {
             display: grid;
             grid-template-columns: 1fr max-content;
             gap: 12px;
-            align-items: center;
+            align-items: start;
             padding: 8px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
           }
@@ -670,9 +704,9 @@ class AccuWeatherCard extends HTMLElement {
             text-transform: uppercase;
             letter-spacing: 0.08em;
             margin-bottom: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.2;
           }
 
           .pollutant-value {
@@ -680,6 +714,7 @@ class AccuWeatherCard extends HTMLElement {
             font-weight: 700;
             white-space: nowrap;
             justify-self: end;
+            align-self: start;
           }
 
           .pollutant-value span {
