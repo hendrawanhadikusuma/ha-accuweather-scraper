@@ -7,6 +7,20 @@ const AQI_LEVELS = [
   { max: Infinity, label: 'Hazardous', color: '#7b2cbf' },
 ];
 
+const CONDITION_LABELS = {
+  sunny: 'Sunny',
+  'clear-night': 'Clear night',
+  cloudy: 'Cloudy',
+  fog: 'Fog',
+  rainy: 'Rainy',
+  snowy: 'Snowy',
+  windy: 'Windy',
+  'partlycloudy': 'Partly cloudy',
+  'lightning-rainy': 'Thunderstorm',
+  hail: 'Hail',
+  pouring: 'Heavy rain',
+};
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -29,6 +43,15 @@ function formatNumber(value, digits = 0) {
   return number.toFixed(digits).replace(/\.0+$/, '');
 }
 
+function pickValue(...values) {
+  for (const value of values) {
+    if (value !== null && value !== undefined && value !== '') {
+      return value;
+    }
+  }
+  return null;
+}
+
 function aqiMeta(value) {
   const number = Number(value);
   if (Number.isNaN(number)) {
@@ -36,6 +59,38 @@ function aqiMeta(value) {
   }
 
   return AQI_LEVELS.find((level) => number <= level.max) || AQI_LEVELS[AQI_LEVELS.length - 1];
+}
+
+function normalizeConditionLabel(condition) {
+  if (!condition) {
+    return '';
+  }
+
+  const value = String(condition).trim();
+  if (!value) {
+    return '';
+  }
+
+  const key = value.toLowerCase();
+  if (CONDITION_LABELS[key]) {
+    return CONDITION_LABELS[key];
+  }
+
+  const humanized = value.replace(/[_-]+/g, ' ');
+  return humanized.charAt(0).toUpperCase() + humanized.slice(1);
+}
+
+function getWeatherIcon(condition) {
+  const normalized = String(condition || '').toLowerCase();
+  if (normalized.includes('rain') || normalized.includes('drizzle') || normalized.includes('shower')) return 'mdi:weather-rainy';
+  if (normalized.includes('storm') || normalized.includes('thunder')) return 'mdi:weather-lightning-rainy';
+  if (normalized.includes('snow') || normalized.includes('sleet') || normalized.includes('hail')) return 'mdi:weather-snowy';
+  if (normalized.includes('fog') || normalized.includes('mist') || normalized.includes('haze')) return 'mdi:weather-fog';
+  if (normalized.includes('cloud')) return 'mdi:weather-cloudy';
+  if (normalized.includes('wind')) return 'mdi:weather-windy';
+  if (normalized.includes('partly')) return 'mdi:weather-partly-cloudy';
+  if (normalized.includes('night')) return 'mdi:weather-night';
+  return 'mdi:weather-sunny';
 }
 
 function forecastLabel(item) {
@@ -54,7 +109,7 @@ function forecastLabel(item) {
   if (item.datetime) {
     try {
       const date = new Date(item.datetime);
-      return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date).toUpperCase();
+      return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(date);
     } catch (error) {
       return String(item.datetime).slice(0, 10);
     }
@@ -63,16 +118,12 @@ function forecastLabel(item) {
   return '';
 }
 
-function getWeatherIcon(condition) {
-  const normalized = String(condition || '').toLowerCase();
-  if (normalized.includes('rain')) return 'mdi:weather-rainy';
-  if (normalized.includes('storm') || normalized.includes('thunder')) return 'mdi:weather-lightning-rainy';
-  if (normalized.includes('snow')) return 'mdi:weather-snowy';
-  if (normalized.includes('fog') || normalized.includes('mist')) return 'mdi:weather-fog';
-  if (normalized.includes('cloud')) return 'mdi:weather-cloudy';
-  if (normalized.includes('wind')) return 'mdi:weather-windy';
-  if (normalized.includes('partly')) return 'mdi:weather-partly-cloudy';
-  return 'mdi:weather-sunny';
+function forecastSummary(item) {
+  return item?.summary || normalizeConditionLabel(item?.condition) || '';
+}
+
+function forecastIcon(item, fallbackCondition = '') {
+  return item?.icon || getWeatherIcon(item?.condition || forecastSummary(item) || fallbackCondition);
 }
 
 class AccuWeatherCard extends HTMLElement {
@@ -85,6 +136,12 @@ class AccuWeatherCard extends HTMLElement {
       title: 'AccuWeather',
       sensors: [],
       forecast_limit: 5,
+      hourly_forecast_limit: 6,
+      show_current: true,
+      show_air_quality: true,
+      show_allergy: true,
+      show_forecast: true,
+      show_sensors: true,
       ...config,
     };
 
@@ -97,22 +154,31 @@ class AccuWeatherCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 4;
+    return this._config.show_forecast === false ? 4 : 6;
+  }
+
+  getGridOptions() {
+    return {
+      columns: this._config.grid_columns || 6,
+      rows: this._config.grid_rows || 'auto',
+      min_rows: this._config.min_rows || 4,
+    };
   }
 
   _stateFor(entityId) {
     return this._hass?.states?.[entityId] || null;
   }
 
-  _renderMetric(label, value, suffix = '') {
+  _renderMetric(label, value, suffix = '', digits = 0) {
     if (value === null || value === undefined || value === '') {
       return '';
     }
 
+    const rendered = formatNumber(value, digits);
     return `
       <div class="metric">
         <div class="metric-label">${escapeHtml(label)}</div>
-        <div class="metric-value">${escapeHtml(value)}${suffix ? ` <span>${escapeHtml(suffix)}</span>` : ''}</div>
+        <div class="metric-value">${escapeHtml(rendered ?? value)}${suffix ? ` <span>${escapeHtml(suffix)}</span>` : ''}</div>
       </div>
     `;
   }
@@ -127,6 +193,37 @@ class AccuWeatherCard extends HTMLElement {
       <div class="sensor-pill">
         <div class="sensor-name">${escapeHtml(state.attributes.friendly_name || state.entity_id)}</div>
         <div class="sensor-value">${escapeHtml(state.state)}</div>
+      </div>
+    `;
+  }
+
+  _renderForecastCard(item, isHourly = false) {
+    const label = forecastLabel(item);
+    const summary = forecastSummary(item);
+    const icon = forecastIcon(item, isHourly ? 'partly cloudy' : summary);
+    const precip = item?.precipitation_probability;
+
+    if (isHourly) {
+      const temp = formatNumber(item?.temperature);
+      return `
+        <div class="forecast-card hourly-card">
+          <div class="forecast-label">${escapeHtml(label)}</div>
+          <ha-icon icon="${escapeHtml(icon)}"></ha-icon>
+          <div class="forecast-temp">${temp !== null ? `${escapeHtml(temp)}°` : '--'}</div>
+          ${precip !== null && precip !== undefined ? `<div class="forecast-precip">💧 ${escapeHtml(precip)}%</div>` : ''}
+        </div>
+      `;
+    }
+
+    const high = formatNumber(item?.temperature);
+    const low = formatNumber(item?.templow);
+    return `
+      <div class="forecast-card daily-card">
+        <div class="forecast-label">${escapeHtml(label)}</div>
+        <ha-icon icon="${escapeHtml(icon)}"></ha-icon>
+        <div class="forecast-range">${high !== null ? `${escapeHtml(high)}°` : '--'} / ${low !== null ? `${escapeHtml(low)}°` : '--'}</div>
+        <div class="forecast-summary">${escapeHtml(summary)}</div>
+        ${precip !== null && precip !== undefined ? `<div class="forecast-precip">💧 ${escapeHtml(precip)}%</div>` : ''}
       </div>
     `;
   }
@@ -149,22 +246,28 @@ class AccuWeatherCard extends HTMLElement {
     }
 
     const attrs = weather.attributes || {};
-    const temperature = attrs.temperature ?? weather.state ?? '-';
-    const temperatureUnit = attrs.temperature_unit || '°C';
-    const condition = weather.state || 'unknown';
+    const currentTemperature = pickValue(attrs.temperature, attrs.native_temperature, attrs.current_temperature);
+    const temperatureUnit = attrs.temperature_unit || attrs.native_temperature_unit || '°C';
+    const condition = weather.state || attrs.condition || 'unknown';
+    const conditionLabel = normalizeConditionLabel(condition);
     const icon = attrs.icon || getWeatherIcon(condition);
-    const apparent = attrs.apparent_temperature;
+    const location = attrs.location || attrs.name || this._config.entity;
+    const apparent = pickValue(attrs.apparent_temperature, attrs.realfeel_temperature, attrs.native_apparent_temperature);
     const humidity = attrs.humidity;
     const windSpeed = attrs.wind_speed;
     const windUnit = attrs.wind_speed_unit || 'km/h';
     const dailyForecast = Array.isArray(attrs.daily_forecast) ? attrs.daily_forecast.slice(0, this._config.forecast_limit) : [];
-    const hourlyForecast = Array.isArray(attrs.hourly_forecast) ? attrs.hourly_forecast.slice(0, this._config.hourly_forecast_limit || 6) : [];
+    const hourlyForecast = Array.isArray(attrs.hourly_forecast) ? attrs.hourly_forecast.slice(0, this._config.hourly_forecast_limit) : [];
     const aqiValue = attrs.air_quality_index;
     const aqi = aqiMeta(aqiValue);
-    const allergyAllergen = attrs.allergy_allergen;
-    const allergyRisk = attrs.allergy_risk;
-    const allergyTips = attrs.allergy_safety_tips;
+    const aqiGaugeFill = Number.isFinite(Number(aqiValue))
+      ? Math.min(100, (Number(aqiValue) / 300) * 100)
+      : 0;
+
     const detailMetrics = [
+      ['Feels like', apparent, temperatureUnit],
+      ['Humidity', humidity, '%'],
+      ['Wind', windSpeed, windUnit],
       ['Gust', attrs.gust_speed, windUnit],
       ['Pressure', attrs.pressure, 'hPa'],
       ['Visibility', attrs.visibility, 'km'],
@@ -174,6 +277,7 @@ class AccuWeatherCard extends HTMLElement {
       ['Precip prob.', attrs.precipitation_probability, '%'],
       ['Cloud ceiling', attrs.cloud_ceiling, 'ft'],
     ].filter(([, value]) => value !== null && value !== undefined && value !== '');
+
     const pollutantRows = [
       ['PM2.5', attrs.pm25, 'µg/m³'],
       ['PM10', attrs.pm10, 'µg/m³'],
@@ -183,413 +287,542 @@ class AccuWeatherCard extends HTMLElement {
       ['O₃', attrs.o3, 'µg/m³'],
     ].filter(([, value]) => value !== null && value !== undefined && value !== '');
 
-    const forecastCards = dailyForecast.map((item) => {
-      const label = forecastLabel(item);
-      const summary = item.summary || item.condition || '';
-      const iconName = item.icon || getWeatherIcon(item.condition || summary);
-      const high = formatNumber(item.temperature);
-      const low = formatNumber(item.templow);
-      const precip = item.precipitation_probability;
-
-      return `
-        <div class="forecast-card">
-          <div class="forecast-day">${escapeHtml(label)}</div>
-          <ha-icon icon="${iconName}"></ha-icon>
-          <div class="forecast-range">${high !== null ? `${escapeHtml(high)}${escapeHtml(temperatureUnit)}` : '--'} / ${low !== null ? `${escapeHtml(low)}${escapeHtml(temperatureUnit)}` : '--'}</div>
-          <div class="forecast-summary">${escapeHtml(summary || '')}</div>
-          ${precip !== null && precip !== undefined ? `<div class="forecast-precip">💧 ${escapeHtml(precip)}%</div>` : ''}
+    const weatherSummary = pickValue(attrs.condition_raw, attrs.summary, conditionLabel);
+    const weatherForecastPanel = `
+      <section class="panel weather-panel">
+        <div class="section-title">
+          <span>${escapeHtml(this._config.title)}</span>
+          <span>${escapeHtml(location)}</span>
         </div>
-      `;
-    }).join('');
 
-    const hourlyCards = hourlyForecast.map((item) => {
-      const label = forecastLabel(item);
-      const summary = item.summary || item.condition || '';
-      const iconName = item.icon || getWeatherIcon(item.condition || summary || (Number(item.precipitation_probability) > 60 ? 'rain' : 'partly cloudy'));
-      const temp = formatNumber(item.temperature);
-      const precip = item.precipitation_probability;
-
-      return `
-        <div class="forecast-card hourly-card">
-          <div class="forecast-day">${escapeHtml(label)}</div>
-          <ha-icon icon="${iconName}"></ha-icon>
-          <div class="forecast-range">${temp !== null ? `${escapeHtml(temp)}${escapeHtml(temperatureUnit)}` : '--'}</div>
-          ${precip !== null && precip !== undefined ? `<div class="forecast-precip">💧 ${escapeHtml(precip)}%</div>` : ''}
+        <div class="hero">
+          <div class="hero-copy">
+            <div class="temperature-row">
+              <div class="temperature">${escapeHtml(formatNumber(currentTemperature) ?? '--')}</div>
+              <div class="temperature-unit">${escapeHtml(temperatureUnit)}</div>
+            </div>
+            <div class="condition">${escapeHtml(conditionLabel || 'Unknown')}</div>
+            <div class="summary">${escapeHtml(weatherSummary || '')}</div>
+          </div>
+          <div class="hero-icon">
+            <ha-icon icon="${escapeHtml(icon)}"></ha-icon>
+          </div>
         </div>
-      `;
-    }).join('');
 
-    const aqiGaugeFill = Number.isFinite(Number(aqiValue))
-      ? Math.min(100, (Number(aqiValue) / 300) * 100)
-      : 0;
+        <div class="metric-grid metric-grid-primary">
+          ${this._renderMetric('Feels like', apparent, temperatureUnit)}
+          ${this._renderMetric('Humidity', humidity, '%')}
+          ${this._renderMetric('Wind', windSpeed, windUnit)}
+          ${this._renderMetric('Gust', attrs.gust_speed, windUnit)}
+        </div>
+
+        <div class="metric-grid metric-grid-secondary">
+          ${this._renderMetric('Pressure', attrs.pressure, 'hPa')}
+          ${this._renderMetric('Visibility', attrs.visibility, 'km')}
+          ${this._renderMetric('Dew point', attrs.dew_point, temperatureUnit)}
+          ${this._renderMetric('Cloud cover', attrs.cloud_cover, '%')}
+          ${this._renderMetric('UV index', attrs.uv_index, '')}
+          ${this._renderMetric('Precip prob.', attrs.precipitation_probability, '%')}
+          ${this._renderMetric('Cloud ceiling', attrs.cloud_ceiling, 'ft')}
+        </div>
+      </section>
+    `;
+
+    const aqiPanel = pollutantRows.length || aqiValue !== undefined
+      ? `
+        <section class="panel aqi-panel">
+          <div class="section-title">
+            <span>Air Quality</span>
+            <span>${escapeHtml(aqi.label)}</span>
+          </div>
+          <div class="aqi-layout">
+            <div class="gauge" style="background: conic-gradient(${aqi.color} 0% ${aqiGaugeFill}%, rgba(255,255,255,0.08) ${aqiGaugeFill}% 100%);">
+              <div class="gauge-inner">
+                <div class="gauge-label">AQI</div>
+                <div class="gauge-value">${escapeHtml(formatNumber(aqiValue) ?? '--')}</div>
+                <div class="gauge-status">${escapeHtml(aqi.label)}</div>
+              </div>
+            </div>
+            <div class="pollutant-grid">
+              ${pollutantRows.map(([name, value, unit]) => `
+                <div class="pollutant">
+                  <div class="pollutant-name">${escapeHtml(name)}</div>
+                  <div class="pollutant-value">${escapeHtml(formatNumber(value, 1) ?? '--')} <span>${escapeHtml(unit)}</span></div>
+                </div>
+              `).join('')}
+              ${!pollutantRows.length ? '<div class="empty-inline">No pollutant data available.</div>' : ''}
+            </div>
+          </div>
+        </section>
+      `
+      : '';
+
+    const allergyPanel = (attrs.allergy_allergen || attrs.allergy_risk || attrs.allergy_safety_tips || attrs.allergy_average_wind || attrs.allergy_max_wind_gusts || attrs.allergy_realfeel_high)
+      ? `
+        <section class="panel allergy-panel">
+          <div class="section-title">
+            <span>Allergy</span>
+            <span>${escapeHtml(attrs.allergy_risk || 'Forecast')}</span>
+          </div>
+          <div class="allergy-body">
+            ${attrs.allergy_allergen ? `<div class="allergy-line"><strong>Allergen:</strong> ${escapeHtml(attrs.allergy_allergen)}</div>` : ''}
+            ${attrs.allergy_risk ? `<div class="allergy-line">${escapeHtml(attrs.allergy_risk)}</div>` : ''}
+            ${attrs.allergy_safety_tips ? `<div class="allergy-line">${escapeHtml(attrs.allergy_safety_tips)}</div>` : ''}
+            ${attrs.allergy_average_wind ? `<div class="allergy-line"><strong>Average wind:</strong> ${escapeHtml(attrs.allergy_average_wind)}</div>` : ''}
+            ${attrs.allergy_max_wind_gusts ? `<div class="allergy-line"><strong>Max wind gusts:</strong> ${escapeHtml(attrs.allergy_max_wind_gusts)}</div>` : ''}
+            ${attrs.allergy_realfeel_high ? `<div class="allergy-line"><strong>RealFeel high:</strong> ${escapeHtml(attrs.allergy_realfeel_high)}</div>` : ''}
+          </div>
+        </section>
+      `
+      : '';
+
+    const forecastPanel = this._config.show_forecast === false
+      ? ''
+      : `
+        <section class="panel forecast-panel">
+          <div class="section-title">
+            <span>Forecast</span>
+            <span>Hourly / Daily</span>
+          </div>
+
+          <div class="forecast-section">
+            <div class="forecast-section-title">Hourly</div>
+            <div class="forecast-strip">
+              ${hourlyForecast.length ? hourlyForecast.map((item) => this._renderForecastCard(item, true)).join('') : '<div class="empty-inline">No hourly forecast data available.</div>'}
+            </div>
+          </div>
+
+          <div class="forecast-section">
+            <div class="forecast-section-title">Daily</div>
+            <div class="forecast-strip">
+              ${dailyForecast.length ? dailyForecast.map((item) => this._renderForecastCard(item, false)).join('') : '<div class="empty-inline">No daily forecast data available.</div>'}
+            </div>
+          </div>
+        </section>
+      `;
+
+    const sensorPanel = (this._config.show_sensors !== false && Array.isArray(this._config.sensors) && this._config.sensors.length)
+      ? `
+        <section class="panel sensor-panel">
+          <div class="section-title">
+            <span>Extras</span>
+            <span>Sensors</span>
+          </div>
+          <div class="sensor-list">
+            ${this._config.sensors.map((entityId) => this._renderSensor(entityId)).join('')}
+          </div>
+        </section>
+      `
+      : '';
 
     this.innerHTML = `
       <ha-card>
         <style>
-          :host { display: block; }
-          ha-card { overflow: hidden; }
+          :host {
+            display: block;
+            width: 100%;
+          }
+
+          ha-card {
+            overflow: hidden;
+            height: 100%;
+          }
+
           .wrapper {
             padding: 16px;
-            color: var(--primary-text-color);
-            background: radial-gradient(circle at top left, rgba(0, 170, 255, 0.09), transparent 30%),
-              linear-gradient(180deg, rgba(10, 16, 24, 0.96), rgba(6, 10, 18, 0.98));
+            box-sizing: border-box;
           }
-          .grid {
+
+          .dashboard {
             display: grid;
-            gap: 14px;
-            grid-template-columns: 2fr 1.15fr;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 16px;
           }
+
           .panel {
-            border: 1px solid rgba(120, 200, 255, 0.16);
-            border-radius: 18px;
-            background: rgba(2, 10, 20, 0.55);
-            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-            padding: 14px;
+            border-radius: 20px;
+            padding: 16px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-sizing: border-box;
+            min-width: 0;
           }
+
+          .weather-panel {
+            grid-column: span 7;
+          }
+
+          .aqi-panel {
+            grid-column: span 5;
+          }
+
+          .forecast-panel,
+          .allergy-panel,
+          .sensor-panel {
+            grid-column: 1 / -1;
+          }
+
           .section-title {
             display: flex;
             align-items: baseline;
             justify-content: space-between;
             gap: 12px;
-            color: #5ed7ff;
+            margin-bottom: 14px;
             font-size: 0.78rem;
-            font-weight: 800;
             letter-spacing: 0.08em;
             text-transform: uppercase;
-            margin-bottom: 12px;
+            opacity: 0.78;
           }
-          .current-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+
+          .hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
             gap: 12px;
+            align-items: center;
+            margin-bottom: 14px;
           }
-          .location {
-            font-size: 0.95rem;
-            opacity: 0.9;
-            letter-spacing: 0.03em;
-          }
-          .temperature {
+
+          .temperature-row {
             display: flex;
             align-items: flex-start;
-            gap: 6px;
-            margin-top: 4px;
-          }
-          .temperature .value {
-            font-size: 4rem;
-            line-height: 0.9;
-            font-weight: 200;
-          }
-          .temperature .unit {
-            font-size: 1.5rem;
-            line-height: 1;
-            opacity: 0.85;
-            margin-top: 7px;
-          }
-          .condition {
-            margin-top: 10px;
-            font-size: 1.05rem;
-            font-weight: 700;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-          }
-          .current-main {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) 180px;
-            gap: 14px;
-            align-items: center;
-          }
-          .hero-icon {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 180px;
-            font-size: 120px;
-            color: #ffd166;
-            filter: drop-shadow(0 0 18px rgba(255, 191, 0, 0.35));
-          }
-          .submetrics {
-            margin-top: 14px;
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-          }
-          .detail-grid {
-            margin-top: 10px;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
           }
+
+          .temperature {
+            font-size: clamp(3rem, 7vw, 4.4rem);
+            font-weight: 800;
+            line-height: 0.9;
+            letter-spacing: -0.05em;
+          }
+
+          .temperature-unit {
+            font-size: 1.1rem;
+            opacity: 0.72;
+            padding-top: 8px;
+          }
+
+          .condition {
+            margin-top: 8px;
+            font-size: 1.05rem;
+            font-weight: 700;
+          }
+
+          .summary {
+            margin-top: 4px;
+            font-size: 0.88rem;
+            opacity: 0.72;
+            min-height: 1.2em;
+          }
+
+          .hero-icon {
+            width: 86px;
+            height: 86px;
+            display: grid;
+            place-items: center;
+            border-radius: 24px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+          }
+
+          .hero-icon ha-icon {
+            width: 64px;
+            height: 64px;
+            color: #ffd166;
+          }
+
+          .metric-grid {
+            display: grid;
+            gap: 10px;
+          }
+
+          .metric-grid-primary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-bottom: 12px;
+          }
+
+          .metric-grid-secondary {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+
           .metric {
             border-radius: 14px;
             padding: 10px 12px;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.05);
+            min-width: 0;
           }
+
           .metric-label {
-            font-size: 0.74rem;
-            opacity: 0.65;
+            font-size: 0.72rem;
+            opacity: 0.68;
             text-transform: uppercase;
             letter-spacing: 0.08em;
             margin-bottom: 4px;
           }
+
           .metric-value {
             font-size: 1rem;
             font-weight: 700;
+            word-break: break-word;
           }
-          .metric-value span { font-weight: 500; opacity: 0.75; }
-          .forecast-strip {
-            display: grid;
-            grid-template-columns: repeat(${Math.max(1, Math.min(dailyForecast.length || 1, 5))}, minmax(0, 1fr));
-            gap: 10px;
-          }
-          .forecast-strip.hourly {
-            grid-template-columns: repeat(${Math.max(1, Math.min(hourlyForecast.length || 1, 6))}, minmax(0, 1fr));
-            margin-bottom: 12px;
-          }
-          .forecast-card {
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            background: rgba(255, 255, 255, 0.03);
-            padding: 10px 8px 12px;
-            text-align: center;
-          }
-          .hourly-card {
-            padding-top: 12px;
-          }
-          .forecast-day {
-            font-size: 0.72rem;
+
+          .metric-value span {
+            font-weight: 500;
             opacity: 0.75;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            margin-bottom: 8px;
           }
-          .forecast-card ha-icon {
-            width: 32px;
-            height: 32px;
-            color: #ffd166;
-          }
-          .forecast-range {
-            margin-top: 6px;
-            font-size: 0.98rem;
-            font-weight: 700;
-          }
-          .forecast-summary {
-            margin-top: 4px;
-            font-size: 0.76rem;
-            opacity: 0.78;
-            min-height: 2.1em;
-          }
-          .forecast-precip {
-            margin-top: 6px;
-            font-size: 0.78rem;
-            color: #7dd3fc;
-          }
-          .aqi-body {
+
+          .aqi-layout {
             display: grid;
             grid-template-columns: 170px minmax(0, 1fr);
             gap: 14px;
             align-items: center;
           }
+
           .gauge {
-            width: 150px;
-            height: 150px;
+            width: 170px;
+            aspect-ratio: 1;
             border-radius: 50%;
-            margin: 0 auto;
             display: grid;
             place-items: center;
-            background: conic-gradient(${aqi.color} 0% ${aqiGaugeFill}%, rgba(255,255,255,0.08) ${aqiGaugeFill}% 100%);
-            position: relative;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
           }
-          .gauge::after {
-            content: '';
-            position: absolute;
-            inset: 18px;
+
+          .gauge-inner {
+            width: 116px;
+            height: 116px;
             border-radius: 50%;
-            background: rgba(4, 9, 16, 0.98);
+            background: rgba(10, 15, 30, 0.88);
+            display: grid;
+            place-items: center;
+            text-align: center;
+            padding: 12px;
+            box-sizing: border-box;
+          }
+
+          .gauge-label {
+            font-size: 0.68rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            opacity: 0.68;
+          }
+
+          .gauge-value {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-top: 4px;
+          }
+
+          .gauge-status {
+            margin-top: 4px;
+            font-size: 0.78rem;
+            opacity: 0.8;
+          }
+
+          .pollutant-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .pollutant {
+            border-radius: 14px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.05);
           }
-          .gauge-inner {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-          }
-          .gauge-label {
-            font-size: 0.7rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            opacity: 0.7;
-          }
-          .gauge-value {
-            font-size: 2.1rem;
-            line-height: 1;
-            font-weight: 700;
-            color: ${aqi.color};
-            margin-top: 6px;
-          }
-          .gauge-status {
-            margin-top: 6px;
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: ${aqi.color};
-            text-transform: uppercase;
-          }
-          .pollutants {
-            display: grid;
-            gap: 8px;
-          }
-          .pollutant {
-            display: grid;
-            grid-template-columns: 1fr auto;
-            gap: 12px;
-            align-items: center;
-            padding: 8px 10px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.03);
-          }
-          .pollutant .name { opacity: 0.8; }
-          .pollutant .value { font-weight: 700; }
-          .pollutant .value span { opacity: 0.7; font-weight: 500; margin-left: 4px; }
-          .allergy {
-            margin-top: 12px;
-            border-radius: 14px;
-            padding: 12px;
-            background: linear-gradient(180deg, rgba(255, 183, 3, 0.09), rgba(255, 255, 255, 0.03));
-            border: 1px solid rgba(255, 183, 3, 0.15);
-          }
-          .allergy-title {
-            color: #ffbf00;
+
+          .pollutant-name {
+            font-size: 0.72rem;
+            opacity: 0.68;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            font-size: 0.75rem;
-            font-weight: 800;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
           }
-          .allergy-risk {
-            font-size: 1.05rem;
-            font-weight: 800;
-            color: #fb7185;
-            margin-bottom: 6px;
+
+          .pollutant-value {
+            font-size: 0.98rem;
+            font-weight: 700;
           }
-          .allergy-desc { opacity: 0.8; line-height: 1.45; }
-          .sensor-list {
-            margin-top: 12px;
+
+          .pollutant-value span {
+            font-weight: 500;
+            opacity: 0.75;
+          }
+
+          .allergy-body {
             display: grid;
             gap: 8px;
+            font-size: 0.9rem;
+            line-height: 1.45;
           }
-          .sensor-pill {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            border-radius: 12px;
-            padding: 8px 10px;
+
+          .allergy-line {
+            padding: 10px 12px;
+            border-radius: 14px;
             background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
           }
-          .sensor-name { opacity: 0.75; }
-          .sensor-value { font-weight: 700; }
-          .empty { padding: 16px; opacity: 0.8; }
-          .footer-note {
-            margin-top: 14px;
-            font-size: 0.82rem;
-            opacity: 0.6;
+
+          .forecast-section + .forecast-section {
+            margin-top: 16px;
           }
+
+          .forecast-section-title {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            opacity: 0.65;
+            margin-bottom: 10px;
+          }
+
+          .forecast-strip {
+            display: grid;
+            grid-auto-flow: column;
+            grid-auto-columns: minmax(120px, 1fr);
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 2px;
+          }
+
+          .forecast-card {
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px 10px;
+            text-align: center;
+            min-height: 140px;
+            display: grid;
+            align-content: start;
+            justify-items: center;
+            gap: 6px;
+          }
+
+          .forecast-card ha-icon {
+            width: 34px;
+            height: 34px;
+            color: #ffd166;
+          }
+
+          .forecast-label {
+            font-size: 0.73rem;
+            opacity: 0.76;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            min-height: 1.6em;
+          }
+
+          .forecast-temp,
+          .forecast-range {
+            font-size: 1rem;
+            font-weight: 800;
+          }
+
+          .forecast-summary {
+            font-size: 0.76rem;
+            opacity: 0.78;
+            min-height: 2.1em;
+          }
+
+          .forecast-precip {
+            font-size: 0.78rem;
+            color: #7dd3fc;
+          }
+
+          .sensor-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+          }
+
+          .sensor-pill {
+            border-radius: 14px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+          }
+
+          .sensor-name {
+            font-size: 0.72rem;
+            opacity: 0.68;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 4px;
+          }
+
+          .sensor-value {
+            font-size: 0.98rem;
+            font-weight: 700;
+          }
+
+          .empty,
+          .empty-inline {
+            opacity: 0.65;
+            font-size: 0.9rem;
+            padding: 8px 0;
+          }
+
           @media (max-width: 1100px) {
-            .grid { grid-template-columns: 1fr; }
-            .current-main { grid-template-columns: 1fr; }
-            .aqi-body { grid-template-columns: 1fr; }
-            .submetrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .weather-panel,
+            .aqi-panel {
+              grid-column: 1 / -1;
+            }
+          }
+
+          @media (max-width: 780px) {
+            .wrapper {
+              padding: 12px;
+            }
+
+            .dashboard {
+              gap: 12px;
+            }
+
+            .panel {
+              padding: 14px;
+              border-radius: 18px;
+            }
+
+            .hero {
+              grid-template-columns: 1fr;
+            }
+
+            .hero-icon {
+              width: 72px;
+              height: 72px;
+            }
+
+            .hero-icon ha-icon {
+              width: 54px;
+              height: 54px;
+            }
+
+            .metric-grid-primary,
+            .metric-grid-secondary,
+            .pollutant-grid,
+            .sensor-list {
+              grid-template-columns: 1fr 1fr;
+            }
+          }
+
+          @media (max-width: 520px) {
+            .metric-grid-primary,
+            .metric-grid-secondary,
+            .pollutant-grid,
+            .sensor-list {
+              grid-template-columns: 1fr;
+            }
           }
         </style>
 
         <div class="wrapper">
-          <div class="grid">
-            <div class="panel">
-              <div class="section-title">
-                <span>Weather</span>
-                <span>${escapeHtml(attrs.location || this._config.entity)}</span>
-              </div>
-              <div class="current-main">
-                <div>
-                  <div class="temperature">
-                    <div class="value">${escapeHtml(formatNumber(temperature) ?? temperature)}</div>
-                    <div class="unit">${escapeHtml(temperatureUnit)}</div>
-                  </div>
-                  <div class="condition">${escapeHtml(condition)}</div>
-                  <div class="location">${escapeHtml(attrs.condition_raw || '')}</div>
-
-                  <div class="submetrics">
-                    ${this._renderMetric('Feels like', formatNumber(apparent), temperatureUnit)}
-                    ${this._renderMetric('Humidity', formatNumber(humidity), '%')}
-                    ${this._renderMetric('Wind', formatNumber(windSpeed), windUnit)}
-                  </div>
-
-                  ${detailMetrics.length ? `
-                    <div class="detail-grid">
-                      ${detailMetrics.map(([label, value, suffix]) => this._renderMetric(label, formatNumber(value), suffix)).join('')}
-                    </div>
-                  ` : ''}
-                </div>
-                <div class="hero-icon">
-                  <ha-icon icon="${escapeHtml(icon)}"></ha-icon>
-                </div>
-              </div>
-            </div>
-
-            <div class="panel">
-              <div class="section-title">
-                <span>Air Quality</span>
-                <span>${escapeHtml(aqi.label)}</span>
-              </div>
-              <div class="aqi-body">
-                <div class="gauge" style="background: conic-gradient(${aqi.color} 0% ${aqiGaugeFill}%, rgba(255,255,255,0.08) ${aqiGaugeFill}% 100%);">
-                  <div class="gauge-inner">
-                    <div class="gauge-label">AQI</div>
-                    <div class="gauge-value">${escapeHtml(formatNumber(aqiValue) ?? '--')}</div>
-                    <div class="gauge-status">${escapeHtml(aqi.label)}</div>
-                  </div>
-                </div>
-                <div>
-                  <div class="pollutants">
-                    ${pollutantRows.map(([name, value, unit]) => `
-                      <div class="pollutant">
-                        <div class="name">${escapeHtml(name)}</div>
-                        <div class="value">${escapeHtml(formatNumber(value, 1) ?? '--')} <span>${escapeHtml(unit)}</span></div>
-                      </div>
-                    `).join('')}
-                  </div>
-                </div>
-              </div>
-
-              ${(allergyAllergen || allergyRisk || allergyTips) ? `
-                <div class="allergy">
-                  <div class="allergy-title">Allergy</div>
-                  ${allergyAllergen ? `<div class="allergy-desc"><strong>Allergen:</strong> ${escapeHtml(allergyAllergen)}</div>` : ''}
-                  ${allergyRisk ? `<div class="allergy-risk">${escapeHtml(allergyRisk)}</div>` : ''}
-                  ${allergyTips ? `<div class="allergy-desc">${escapeHtml(allergyTips)}</div>` : ''}
-                </div>
-              ` : ''}
-            </div>
-
-            <div class="panel">
-              <div class="section-title">
-                <span>Forecast</span>
-                <span>Hourly / Daily</span>
-              </div>
-              <div class="forecast-strip hourly">
-                ${hourlyCards || '<div class="empty">No hourly forecast data available.</div>'}
-              </div>
-              <div class="forecast-strip">
-                ${forecastCards || '<div class="empty">No forecast data available.</div>'}
-              </div>
-              ${this._config.sensors?.length ? `
-                <div class="sensor-list">
-                  ${this._config.sensors.map((entityId) => this._renderSensor(entityId)).join('')}
-                </div>
-              ` : ''}
-            </div>
+          <div class="dashboard">
+            ${this._config.show_current === false ? '' : weatherForecastPanel}
+            ${this._config.show_air_quality === false ? '' : aqiPanel}
+            ${forecastPanel}
+            ${this._config.show_allergy === false ? '' : allergyPanel}
+            ${sensorPanel}
           </div>
-
-          <div class="footer-note">${escapeHtml(this._config.forecast_note || 'Built for current weather, daily forecast, AQI, and allergy data.')}</div>
         </div>
       </ha-card>
     `;
