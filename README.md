@@ -58,6 +58,13 @@ url: /local/accuweather-card.js
 type: module
 ```
 
+If you store the file under a subfolder like `/config/www/community/accuweather-card/accuweather-card.js`, update the resource URL to match, for example:
+
+```yaml
+url: /local/community/accuweather-card/accuweather-card.js
+type: module
+```
+
 If you want the card to be installable through HACS with no manual copy step, it should live in a separate frontend repository.
 
 Example card config:
@@ -65,6 +72,9 @@ Example card config:
 ```yaml
 type: custom:accuweather-card
 entity: weather.accuweather_palmerah
+grid_options:
+  columns: 6
+  rows: auto
 sensors:
   - sensor.air_quality_index
   - sensor.pm25
@@ -72,3 +82,63 @@ sensors:
 ```
 
 The card reads weather, hourly/daily forecast, AQI, and allergy attributes from the `weather` entity and can be extended with more sensor entities if you want denser layouts.
+
+### Example configs
+
+#### Full dashboard
+
+```yaml
+type: custom:accuweather-card
+entity: weather.accuweather_palmerah
+grid_options:
+  columns: 6
+  rows: auto
+show_current: true
+show_air_quality: true
+show_forecast: true
+show_allergy: true
+show_sensors: true
+forecast_limit: 5
+hourly_forecast_limit: 6
+sensors:
+  - sensor.air_quality_index
+  - sensor.pm25
+  - sensor.pm10
+```
+
+#### Weather only
+
+```yaml
+type: custom:accuweather-card
+entity: weather.accuweather_palmerah
+show_air_quality: false
+show_forecast: false
+show_allergy: false
+show_sensors: false
+```
+
+#### Forecast only
+
+```yaml
+type: custom:accuweather-card
+entity: weather.accuweather_palmerah
+show_current: false
+show_air_quality: false
+show_allergy: false
+show_sensors: false
+show_forecast: true
+forecast_limit: 5
+hourly_forecast_limit: 6
+```
+
+#### Air quality + allergy only
+
+```yaml
+type: custom:accuweather-card
+entity: weather.accuweather_palmerah
+show_current: false
+show_forecast: false
+show_sensors: false
+show_air_quality: true
+show_allergy: true
+```
