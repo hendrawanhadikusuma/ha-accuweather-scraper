@@ -289,6 +289,7 @@ class AccuWeatherCard extends HTMLElement {
     ].filter(([, value]) => value !== null && value !== undefined && value !== '');
 
     const weatherSummary = pickValue(attrs.condition_raw, attrs.summary, conditionLabel);
+    const aqiPanelColumn = this._config.show_current === false ? '1 / -1' : 'span 5';
     const weatherForecastPanel = `
       <section class="panel weather-panel">
         <div class="section-title">
@@ -331,7 +332,7 @@ class AccuWeatherCard extends HTMLElement {
 
     const aqiPanel = pollutantRows.length || aqiValue !== undefined
       ? `
-        <section class="panel aqi-panel">
+        <section class="panel aqi-panel" style="grid-column: ${aqiPanelColumn};">
           <div class="section-title">
             <span>Air Quality</span>
           </div>
