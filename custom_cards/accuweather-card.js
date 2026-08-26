@@ -386,20 +386,15 @@ class AccuWeatherCard extends HTMLElement {
       ? ''
       : `
         <section class="panel forecast-panel">
-          <div class="section-title">
-            <span>Forecast</span>
-            <span>Hourly / Daily</span>
-          </div>
-
           <div class="forecast-section">
-            <div class="forecast-section-title">Hourly</div>
+            <div class="forecast-section-title">Forecast / Hourly</div>
             <div class="forecast-strip">
               ${hourlyForecast.length ? hourlyForecast.map((item) => this._renderForecastCard(item, true)).join('') : '<div class="empty-inline">No hourly forecast data available.</div>'}
             </div>
           </div>
 
           <div class="forecast-section">
-            <div class="forecast-section-title">Daily</div>
+            <div class="forecast-section-title">Forecast / Daily</div>
             <div class="forecast-strip">
               ${dailyForecast.length ? dailyForecast.map((item) => this._renderForecastCard(item, false)).join('') : '<div class="empty-inline">No daily forecast data available.</div>'}
             </div>
@@ -621,7 +616,8 @@ class AccuWeatherCard extends HTMLElement {
             position: absolute;
             inset: 14px;
             border-radius: 50%;
-            background: rgba(10, 15, 30, 0.88);
+            background: rgba(255, 255, 255, 0.96);
+            box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
             z-index: 0;
             pointer-events: none;
           }
@@ -636,6 +632,7 @@ class AccuWeatherCard extends HTMLElement {
             letter-spacing: 0.16em;
             text-transform: uppercase;
             opacity: 0.68;
+            color: #0f172a;
           }
 
           .gauge-value {
@@ -661,7 +658,7 @@ class AccuWeatherCard extends HTMLElement {
 
           .pollutant {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-columns: minmax(0, 1fr) max-content;
             gap: 12px;
             align-items: center;
             padding: 8px 0;
@@ -674,16 +671,23 @@ class AccuWeatherCard extends HTMLElement {
             text-transform: uppercase;
             letter-spacing: 0.08em;
             margin-bottom: 0;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
 
           .pollutant-value {
             font-size: 0.98rem;
             font-weight: 700;
+            white-space: nowrap;
+            justify-self: end;
           }
 
           .pollutant-value span {
             font-weight: 500;
             opacity: 0.75;
+            white-space: nowrap;
           }
 
           .aqi-footer {
