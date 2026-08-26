@@ -336,12 +336,14 @@ class AccuWeatherCard extends HTMLElement {
             <span>Air Quality</span>
           </div>
           <div class="aqi-layout">
-            <div class="gauge" style="background: conic-gradient(${aqi.color} 0% ${aqiGaugeFill}%, rgba(255,255,255,0.08) ${aqiGaugeFill}% 100%);">
-              <div class="gauge-inner">
-                <div class="gauge-label">AQI</div>
-                <div class="gauge-value">${escapeHtml(formatNumber(aqiValue) ?? '--')}</div>
-                <div class="gauge-status">${escapeHtml(aqi.label)}</div>
+            <div class="gauge-column">
+              <div class="gauge" style="background: conic-gradient(${aqi.color} 0% ${aqiGaugeFill}%, rgba(255,255,255,0.08) ${aqiGaugeFill}% 100%);">
+                <div class="gauge-inner">
+                  <div class="gauge-label">AQI</div>
+                  <div class="gauge-value" style="color: ${aqiLabelColor};">${escapeHtml(formatNumber(aqiValue) ?? '--')}</div>
+                </div>
               </div>
+              <div class="gauge-status" style="color: ${aqiLabelColor};">${escapeHtml(aqi.label)}</div>
             </div>
             <div class="pollutant-grid">
               ${pollutantRows.map(([name, value, unit]) => `
@@ -582,6 +584,12 @@ class AccuWeatherCard extends HTMLElement {
             align-items: center;
           }
 
+          .gauge-column {
+            display: grid;
+            justify-items: center;
+            gap: 8px;
+          }
+
           .gauge {
             width: 170px;
             aspect-ratio: 1;
@@ -598,12 +606,27 @@ class AccuWeatherCard extends HTMLElement {
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background: rgba(10, 15, 30, 0.88);
+            background: transparent;
             display: grid;
             place-items: center;
             text-align: center;
             padding: 12px;
             box-sizing: border-box;
+            position: relative;
+            z-index: 1;
+          }
+
+          .gauge-inner::before {
+            content: '';
+            position: absolute;
+            inset: 14px;
+            border-radius: 50%;
+            background: rgba(10, 15, 30, 0.88);
+            z-index: 0;
+            pointer-events: none;
+          }
+
+          .gauge-inner > * {
             position: relative;
             z-index: 1;
           }
@@ -623,9 +646,10 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .gauge-status {
-            margin-top: 4px;
             font-size: 0.78rem;
-            opacity: 0.8;
+            font-weight: 700;
+            text-align: center;
+            white-space: nowrap;
           }
 
           .pollutant-grid {
@@ -663,10 +687,12 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .aqi-footer {
-            display: inline-flex;
-            gap: 14px;
+            display: flex;
+            gap: 12px;
             margin-top: 14px;
             align-items: center;
+            flex-wrap: nowrap;
+            width: 100%;
           }
 
           .aqi-footer-key {
@@ -674,11 +700,14 @@ class AccuWeatherCard extends HTMLElement {
             letter-spacing: 0.16em;
             text-transform: uppercase;
             opacity: 0.68;
+            white-space: nowrap;
+            flex-shrink: 0;
           }
 
           .aqi-footer-value {
             font-size: 1rem;
             font-weight: 800;
+            white-space: nowrap;
           }
 
           .allergy-body {
