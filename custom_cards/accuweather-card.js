@@ -365,7 +365,7 @@ class AccuWeatherCard extends HTMLElement {
       ['Cloud Ceiling', attrs.cloud_ceiling, 'ft'],
     ];
     const weatherForecastPanel = `
-      <section class="panel weather-panel" style="grid-column: ${weatherPanelColumn};">
+      <section class="weather-panel" style="grid-column: ${weatherPanelColumn};">
         <div class="section-title">
           <span>${escapeHtml(this._config.title)}</span>
           <span>${escapeHtml(location)}</span>
@@ -400,7 +400,7 @@ class AccuWeatherCard extends HTMLElement {
 
     const aqiPanel = pollutantRows.length || aqiValue !== undefined
       ? `
-        <section class="panel aqi-panel" style="grid-column: ${aqiPanelColumn};">
+        <section class="aqi-panel" style="grid-column: ${aqiPanelColumn};">
           <div class="section-title">
             <span>Air Quality</span>
           </div>
@@ -434,7 +434,7 @@ class AccuWeatherCard extends HTMLElement {
 
     const allergyPanel = (attrs.allergy_allergen || attrs.allergy_risk || attrs.allergy_safety_tips || attrs.allergy_average_wind || attrs.allergy_max_wind_gusts || attrs.allergy_realfeel_high)
       ? `
-        <section class="panel allergy-panel">
+        <section class="allergy-panel">
           <div class="section-title">
             <span>Allergy</span>
             <span>${escapeHtml(attrs.allergy_risk || 'Forecast')}</span>
@@ -454,7 +454,7 @@ class AccuWeatherCard extends HTMLElement {
     const forecastPanel = this._config.show_forecast === false
       ? ''
       : `
-        <section class="panel forecast-panel">
+        <section class="forecast-panel">
           <div class="forecast-section">
             <div class="forecast-section-title">Forecast / Hourly</div>
             <div class="forecast-strip">
@@ -473,7 +473,7 @@ class AccuWeatherCard extends HTMLElement {
 
     const sensorPanel = (this._config.show_sensors !== false && Array.isArray(this._config.sensors) && this._config.sensors.length)
       ? `
-        <section class="panel sensor-panel">
+        <section class="sensor-panel">
           <div class="section-title">
             <span>Extras</span>
             <span>Sensors</span>
@@ -507,14 +507,6 @@ class AccuWeatherCard extends HTMLElement {
             display: grid;
             grid-template-columns: repeat(12, 1fr);
             gap: 16px;
-          }
-
-          .panel {
-            border-radius: 20px;
-            padding: 16px;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025));
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-sizing: border-box;
           }
 
           .weather-panel {
@@ -951,11 +943,6 @@ class AccuWeatherCard extends HTMLElement {
 
             .dashboard {
               gap: 12px;
-            }
-
-            .panel {
-              padding: 14px;
-              border-radius: 18px;
             }
 
             .hero {
