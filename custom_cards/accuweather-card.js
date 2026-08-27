@@ -93,9 +93,32 @@ function getWeatherIcon(condition) {
   return 'mdi:weather-sunny';
 }
 
-function forecastLabel(item) {
+function forecastLabel(item, isHourly = false) {
   if (!item) {
     return '';
+  }
+
+  if (isHourly) {
+    if (item.time_label && String(item.time_label).trim().toLowerCase() === 'now') {
+      return item.time_label;
+    }
+
+    if (item.datetime) {
+      try {
+        const date = new Date(item.datetime);
+        return new Intl.DateTimeFormat(undefined, {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }).format(date);
+      } catch (error) {
+        return String(item.datetime).slice(11, 16);
+      }
+    }
+
+    if (item.time_label) {
+      return item.time_label;
+    }
   }
 
   if (item.time_label) {
@@ -233,7 +256,6 @@ class AccuWeatherCard extends HTMLElement {
     return `
       <div class="metric-inline">
         <div class="metric-inline-label">${escapeHtml(label)}</div>
-        <div class="metric-inline-separator">|</div>
         <div class="metric-inline-value">${escapeHtml(rendered ?? '--')}${suffix ? ` <span>${escapeHtml(suffix)}</span>` : ''}</div>
       </div>
     `;
@@ -254,7 +276,7 @@ class AccuWeatherCard extends HTMLElement {
   }
 
   _renderForecastCard(item, isHourly = false) {
-    const label = forecastLabel(item);
+    const label = forecastLabel(item, isHourly);
     const summary = forecastSummary(item);
     const summaryTooltip = forecastSummaryTooltip(item);
     const icon = forecastIcon(item, isHourly ? 'partly cloudy' : summary);
@@ -390,7 +412,10 @@ class AccuWeatherCard extends HTMLElement {
         </div>
 
         <div class="metric-row metric-row-inline">
-          ${weatherMetricRow1.map(([label, value, suffix]) => this._renderInlineMetric(label, value, suffix)).join('')}
+          ${weatherMetricRow1.map(([label, value, suffix], index) => `
+            ${index > 0 ? '<div class="metric-inline-separator">|</div>' : ''}
+            ${this._renderInlineMetric(label, value, suffix)}
+          `).join('')}
         </div>
 
         <div class="metric-row metric-row-cards">
@@ -607,7 +632,7 @@ class AccuWeatherCard extends HTMLElement {
           .metric-row-inline {
             display: flex;
             align-items: center;
-            justify-content: space-evenly;
+            justify-content: center;
             gap: 12px;
             flex-wrap: wrap;
           }
@@ -618,11 +643,12 @@ class AccuWeatherCard extends HTMLElement {
 
           .metric-inline {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 12px;
             white-space: nowrap;
             flex: 1 1 0;
+            min-width: 0;
           }
 
           .metric-inline-label {
@@ -636,11 +662,13 @@ class AccuWeatherCard extends HTMLElement {
             font-size: 0.9rem;
             opacity: 0.42;
             font-weight: 700;
+            flex: 0 0 auto;
           }
 
           .metric-inline-value {
             font-size: 0.98rem;
             font-weight: 700;
+            flex: 0 0 auto;
           }
 
           .metric-inline-value span {
