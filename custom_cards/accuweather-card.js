@@ -848,38 +848,38 @@ class AccuWeatherCard extends HTMLElement {
 
           .forecast-strip {
             display: grid;
-            grid-auto-flow: column;
-            grid-auto-columns: minmax(120px, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
             gap: 10px;
-            overflow-x: auto;
+            overflow: visible;
             padding-bottom: 2px;
+            align-items: start;
           }
 
           .forecast-card {
             border-radius: 16px;
             border: 1px solid rgba(255, 255, 255, 0.06);
             background: rgba(255, 255, 255, 0.03);
-            padding: 12px 10px;
+            padding: 10px 8px;
             text-align: center;
-            min-height: 140px;
+            min-height: 114px;
             display: grid;
             align-content: start;
             justify-items: center;
-            gap: 6px;
+            gap: 4px;
           }
 
           .forecast-card ha-icon {
-            width: 34px;
-            height: 34px;
+            width: 30px;
+            height: 30px;
             color: #ffd166;
           }
 
           .forecast-label {
-            font-size: 0.73rem;
+            font-size: 0.7rem;
             opacity: 0.76;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            min-height: 1.6em;
+            min-height: 1.4em;
           }
 
           .forecast-temp,
@@ -889,9 +889,9 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .forecast-summary {
-            font-size: 0.76rem;
+            font-size: 0.74rem;
             opacity: 0.78;
-            min-height: 2.6em;
+            min-height: 2.2em;
             display: -webkit-box;
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
@@ -899,7 +899,7 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .forecast-precip {
-            font-size: 0.78rem;
+            font-size: 0.74rem;
             color: #7dd3fc;
           }
 
