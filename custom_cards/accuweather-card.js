@@ -563,6 +563,7 @@ class AccuWeatherCard extends HTMLElement {
             letter-spacing: 0.08em;
             text-transform: uppercase;
             opacity: 0.78;
+            color: var(--primary-color);
           }
 
           .hero {
