@@ -119,7 +119,11 @@ function forecastLabel(item) {
 }
 
 function forecastSummary(item) {
-  return item?.summary || normalizeConditionLabel(item?.condition) || '';
+  return normalizeConditionLabel(item?.condition) || normalizeConditionLabel(item?.summary) || item?.summary || '';
+}
+
+function forecastSummaryTooltip(item) {
+  return item?.summary || forecastSummary(item) || '';
 }
 
 function forecastIcon(item, fallbackCondition = '') {
@@ -135,26 +139,26 @@ function gaugeStatusFontSize(label) {
   }
 
   if (length <= 8) {
-    return 18;
+    return 20;
   }
 
   if (length <= 12) {
-    return 17;
+    return 19;
   }
 
   if (length <= 18) {
-    return 16;
+    return 18;
   }
 
   if (length <= 24) {
-    return 15;
+    return 17;
   }
 
   if (length <= 32) {
-    return 14;
+    return 16;
   }
 
-  return 13;
+  return 15;
 }
 
 class AccuWeatherCard extends HTMLElement {
@@ -252,6 +256,7 @@ class AccuWeatherCard extends HTMLElement {
   _renderForecastCard(item, isHourly = false) {
     const label = forecastLabel(item);
     const summary = forecastSummary(item);
+    const summaryTooltip = forecastSummaryTooltip(item);
     const icon = forecastIcon(item, isHourly ? 'partly cloudy' : summary);
     const precip = item?.precipitation_probability;
 
@@ -274,7 +279,7 @@ class AccuWeatherCard extends HTMLElement {
         <div class="forecast-label">${escapeHtml(label)}</div>
         <ha-icon icon="${escapeHtml(icon)}"></ha-icon>
         <div class="forecast-range">${high !== null ? `${escapeHtml(high)}°` : '--'} / ${low !== null ? `${escapeHtml(low)}°` : '--'}</div>
-        <div class="forecast-summary">${escapeHtml(summary)}</div>
+        <div class="forecast-summary" title="${escapeHtml(summaryTooltip)}">${escapeHtml(summary)}</div>
         ${precip !== null && precip !== undefined ? `<div class="forecast-precip">💧 ${escapeHtml(precip)}%</div>` : ''}
       </div>
     `;
@@ -713,7 +718,7 @@ class AccuWeatherCard extends HTMLElement {
             position: absolute;
             inset: 14px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.96);
+            background: var(--card-background-color, rgba(255, 255, 255, 0.96));
             box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
             z-index: 0;
             pointer-events: none;
@@ -725,16 +730,17 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .gauge-label {
-            font-size: 0.68rem;
-            letter-spacing: 0.16em;
+            font-size: 0.78rem;
+            letter-spacing: 0.18em;
             text-transform: uppercase;
-            opacity: 0.68;
-            color: #0f172a;
+            opacity: 0.9;
+            color: var(--primary-text-color);
+            font-weight: 800;
           }
 
           .gauge-value {
-            font-size: 2rem;
-            font-weight: 800;
+            font-size: 2.2rem;
+            font-weight: 900;
             line-height: 1;
             margin-top: 4px;
           }
@@ -746,6 +752,7 @@ class AccuWeatherCard extends HTMLElement {
             overflow-wrap: anywhere;
             line-height: 1.1;
             max-width: 170px;
+            font-weight: 900;
           }
 
           .pollutant-grid {
@@ -884,7 +891,11 @@ class AccuWeatherCard extends HTMLElement {
           .forecast-summary {
             font-size: 0.76rem;
             opacity: 0.78;
-            min-height: 2.1em;
+            min-height: 2.6em;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
           }
 
           .forecast-precip {
