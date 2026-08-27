@@ -214,6 +214,27 @@ class AccuWeatherCard extends HTMLElement {
     `;
   }
 
+  _renderMetricCard(label, value, suffix = '', digits = 0) {
+    const rendered = formatNumber(value, digits);
+    return `
+      <div class="metric">
+        <div class="metric-label">${escapeHtml(label)}</div>
+        <div class="metric-value">${escapeHtml(rendered ?? '--')}${suffix ? ` <span>${escapeHtml(suffix)}</span>` : ''}</div>
+      </div>
+    `;
+  }
+
+  _renderInlineMetric(label, value, suffix = '', digits = 0) {
+    const rendered = formatNumber(value, digits);
+    return `
+      <div class="metric-inline">
+        <div class="metric-inline-label">${escapeHtml(label)}</div>
+        <div class="metric-inline-separator">|</div>
+        <div class="metric-inline-value">${escapeHtml(rendered ?? '--')}${suffix ? ` <span>${escapeHtml(suffix)}</span>` : ''}</div>
+      </div>
+    `;
+  }
+
   _renderSensor(entityId) {
     const state = this._stateFor(entityId);
     if (!state) {
@@ -319,11 +340,32 @@ class AccuWeatherCard extends HTMLElement {
       ['O₃', attrs.o3, 'µg/m³'],
     ].filter(([, value]) => value !== null && value !== undefined && value !== '');
 
-    const weatherSummary = pickValue(attrs.condition_raw, attrs.summary, conditionLabel);
+    const conditionSummary = pickValue(attrs.condition_summary, attrs.condition_raw, attrs.summary, conditionLabel);
+    const hasAqiPanel = pollutantRows.length || aqiValue !== undefined;
+    const weatherPanelColumn = this._config.show_air_quality === false || !hasAqiPanel ? '1 / -1' : 'span 7';
     const aqiPanelColumn = this._config.show_current === false ? '1 / -1' : 'span 5';
     const aqiStatusSize = gaugeStatusFontSize(aqi.label);
+    const weatherMetricRow1 = [
+      ['Real Feel', attrs.realfeel_temperature, temperatureUnit],
+      ['Real Feel Shade', pickValue(attrs.realfeel_shade_temperature, attrs.realfeel_shade, attrs.realfeel_shade_temp), temperatureUnit],
+      ['Heat Index', pickValue(attrs.heat_index, attrs.heatindex, attrs.heat_index_temperature), temperatureUnit],
+    ];
+    const weatherMetricRow2 = [
+      ['Humidity', humidity, '%'],
+      ['Wind', windSpeed, windUnit],
+      ['Gust', attrs.gust_speed, windUnit],
+      ['Pressure', attrs.pressure, 'hPa'],
+      ['Visibility', attrs.visibility, 'km'],
+    ];
+    const weatherMetricRow3 = [
+      ['UV Index', attrs.uv_index, ''],
+      ['Cloud Cover', attrs.cloud_cover, '%'],
+      ['Precip Prob.', attrs.precipitation_probability, '%'],
+      ['Dew Point', attrs.dew_point, temperatureUnit],
+      ['Cloud Ceiling', attrs.cloud_ceiling, 'ft'],
+    ];
     const weatherForecastPanel = `
-      <section class="panel weather-panel">
+      <section class="panel weather-panel" style="grid-column: ${weatherPanelColumn};">
         <div class="section-title">
           <span>${escapeHtml(this._config.title)}</span>
           <span>${escapeHtml(location)}</span>
@@ -335,29 +377,23 @@ class AccuWeatherCard extends HTMLElement {
               <div class="temperature">${escapeHtml(formatNumber(currentTemperature) ?? '--')}</div>
               <div class="temperature-unit">${escapeHtml(temperatureUnit)}</div>
             </div>
-            <div class="condition">${escapeHtml(conditionLabel || 'Unknown')}</div>
-            <div class="summary">${escapeHtml(weatherSummary || '')}</div>
+            <div class="condition">${escapeHtml(conditionSummary || conditionLabel || 'Unknown')}</div>
           </div>
           <div class="hero-icon">
             <ha-icon icon="${escapeHtml(icon)}"></ha-icon>
           </div>
         </div>
 
-        <div class="metric-grid metric-grid-primary">
-          ${this._renderMetric('Feels like', apparent, temperatureUnit)}
-          ${this._renderMetric('Humidity', humidity, '%')}
-          ${this._renderMetric('Wind', windSpeed, windUnit)}
-          ${this._renderMetric('Gust', attrs.gust_speed, windUnit)}
+        <div class="metric-row metric-row-inline">
+          ${weatherMetricRow1.map(([label, value, suffix]) => this._renderInlineMetric(label, value, suffix)).join('')}
         </div>
 
-        <div class="metric-grid metric-grid-secondary">
-          ${this._renderMetric('Pressure', attrs.pressure, 'hPa')}
-          ${this._renderMetric('Visibility', attrs.visibility, 'km')}
-          ${this._renderMetric('Dew point', attrs.dew_point, temperatureUnit)}
-          ${this._renderMetric('Cloud cover', attrs.cloud_cover, '%')}
-          ${this._renderMetric('UV index', attrs.uv_index, '')}
-          ${this._renderMetric('Precip prob.', attrs.precipitation_probability, '%')}
-          ${this._renderMetric('Cloud ceiling', attrs.cloud_ceiling, 'ft')}
+        <div class="metric-row metric-row-cards">
+          ${weatherMetricRow2.map(([label, value, suffix]) => this._renderMetricCard(label, value, suffix)).join('')}
+        </div>
+
+        <div class="metric-row metric-row-cards">
+          ${weatherMetricRow3.map(([label, value, suffix]) => this._renderMetricCard(label, value, suffix)).join('')}
         </div>
       </section>
     `;
@@ -509,7 +545,7 @@ class AccuWeatherCard extends HTMLElement {
 
           .hero {
             display: grid;
-            grid-template-columns: 1fr auto;
+            grid-template-columns: 1fr 112px;
             gap: 12px;
             align-items: center;
             margin-bottom: 14px;
@@ -548,8 +584,8 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .hero-icon {
-            width: 86px;
-            height: 86px;
+            width: 112px;
+            height: 112px;
             display: grid;
             place-items: center;
             border-radius: 24px;
@@ -558,23 +594,58 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .hero-icon ha-icon {
-            width: 64px;
-            height: 64px;
+            width: 82px;
+            height: 82px;
             color: #ffd166;
           }
 
-          .metric-grid {
+          .metric-row {
             display: grid;
             gap: 10px;
           }
 
-          .metric-grid-primary {
-            grid-template-columns: repeat(2, 1fr);
-            margin-bottom: 12px;
+          .metric-row-inline {
+            display: flex;
+            align-items: center;
+            justify-content: space-evenly;
+            gap: 12px;
+            flex-wrap: wrap;
           }
 
-          .metric-grid-secondary {
-            grid-template-columns: repeat(3, 1fr);
+          .metric-row-cards {
+            grid-template-columns: repeat(5, 1fr);
+          }
+
+          .metric-inline {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            white-space: nowrap;
+            flex: 1 1 0;
+          }
+
+          .metric-inline-label {
+            font-size: 0.72rem;
+            opacity: 0.68;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+          }
+
+          .metric-inline-separator {
+            font-size: 0.9rem;
+            opacity: 0.42;
+            font-weight: 700;
+          }
+
+          .metric-inline-value {
+            font-size: 0.98rem;
+            font-weight: 700;
+          }
+
+          .metric-inline-value span {
+            font-weight: 700;
+            opacity: 0.75;
           }
 
           .metric {
@@ -864,6 +935,10 @@ class AccuWeatherCard extends HTMLElement {
             .aqi-panel {
               grid-column: 1 / -1;
             }
+
+            .metric-row-cards {
+              grid-template-columns: repeat(2, 1fr);
+            }
           }
 
           @media (max-width: 780px) {
@@ -885,17 +960,25 @@ class AccuWeatherCard extends HTMLElement {
             }
 
             .hero-icon {
-              width: 72px;
-              height: 72px;
+              width: 90px;
+              height: 90px;
             }
 
             .hero-icon ha-icon {
-              width: 54px;
-              height: 54px;
+              width: 66px;
+              height: 66px;
             }
 
-            .metric-grid-primary,
-            .metric-grid-secondary,
+            .metric-row-inline {
+              flex-direction: column;
+              align-items: stretch;
+            }
+
+            .metric-inline {
+              justify-content: space-between;
+            }
+
+            .metric-row-cards,
             .pollutant-grid,
             .sensor-list {
               grid-template-columns: 1fr 1fr;
@@ -903,11 +986,19 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           @media (max-width: 520px) {
-            .metric-grid-primary,
-            .metric-grid-secondary,
+            .metric-row-cards,
             .pollutant-grid,
             .sensor-list {
               grid-template-columns: 1fr;
+            }
+
+            .metric-row-inline {
+              flex-direction: column;
+              align-items: stretch;
+            }
+
+            .metric-inline {
+              justify-content: space-between;
             }
           }
         </style>
