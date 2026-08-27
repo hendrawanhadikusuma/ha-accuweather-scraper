@@ -848,7 +848,7 @@ class AccuWeatherCard extends HTMLElement {
 
           .forecast-strip {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(108px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
             gap: 10px;
             overflow: visible;
             padding-bottom: 2px;
@@ -861,7 +861,7 @@ class AccuWeatherCard extends HTMLElement {
             background: rgba(255, 255, 255, 0.03);
             padding: 10px 8px;
             text-align: center;
-            min-height: 114px;
+            min-height: 75px;
             display: grid;
             align-content: start;
             justify-items: center;
