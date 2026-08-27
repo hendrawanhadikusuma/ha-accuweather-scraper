@@ -594,8 +594,11 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .hero-icon ha-icon {
+            --mdc-icon-size: 82px;
             width: 82px;
             height: 82px;
+            display: block;
+            line-height: 1;
             color: #ffd166;
           }
 
@@ -965,8 +968,11 @@ class AccuWeatherCard extends HTMLElement {
             }
 
             .hero-icon ha-icon {
+              --mdc-icon-size: 66px;
               width: 66px;
               height: 66px;
+              display: block;
+              line-height: 1;
             }
 
             .metric-row-inline {
