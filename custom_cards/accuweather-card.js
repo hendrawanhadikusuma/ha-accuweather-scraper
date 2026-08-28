@@ -669,6 +669,7 @@ class AccuWeatherCard extends HTMLElement {
           ha-card {
             overflow: hidden;
             height: 100%;
+            background: linear-gradient(180deg, rgba(7, 15, 28, 0.98), rgba(4, 10, 20, 0.98));
           }
 
           .wrapper {
@@ -703,8 +704,11 @@ class AccuWeatherCard extends HTMLElement {
           .sensor-panel {
             padding: 14px;
             border-radius: 18px;
-            background: var(--card-background-color, rgba(255, 255, 255, 0.03));
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: radial-gradient(circle at 18% 18%, rgba(34, 211, 238, 0.10), transparent 26%),
+            radial-gradient(circle at 82% 10%, rgba(52, 211, 153, 0.08), transparent 24%),
+            linear-gradient(180deg, rgba(7, 15, 28, 0.94), rgba(3, 8, 16, 0.98));
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
           }
 
           .section-title {
