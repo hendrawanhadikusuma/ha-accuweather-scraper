@@ -69,6 +69,21 @@ If you want the card to be installable through HACS with no manual copy step, it
 
 This card also ships with a Lovelace visual editor once the JS file is loaded as a dashboard resource. In the UI editor you can set the weather entity, title, grid options, panel toggles, forecast limits, and sensor list without writing YAML by hand.
 
+## System card
+
+The repo also includes a `system-card` at `custom_cards/system-card.js` for Raspberry Pi monitor data.
+
+Example config:
+
+```yaml
+type: custom:system-card
+entity: sensor.rpi_raspberrypi_monitor
+title: System
+history_hours: 24
+```
+
+The sparkline charts use Home Assistant history data for the selected entity, so Recorder/history needs to be available for chart traces to appear.
+
 Example card config:
 
 ```yaml
