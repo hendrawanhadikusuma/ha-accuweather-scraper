@@ -42,6 +42,14 @@ function getValueAtPath(source, path) {
   }, source);
 }
 
+function getValueByPathSpec(source, pathSpec) {
+  if (Array.isArray(pathSpec)) {
+    return pickValue(...pathSpec.map((path) => getValueAtPath(source, path)));
+  }
+
+  return getValueAtPath(source, pathSpec);
+}
+
 function toNumber(value) {
   if (value === null || value === undefined || value === '') {
     return null;
@@ -210,11 +218,14 @@ const SYSTEM_METRICS = [
     key: 'cpu',
     label: 'CPU',
     color: '#22d3ee',
-    valuePath: 'load_1min_prcnt',
-    seriesPath: 'load_1min_prcnt',
+    valuePath: ['cpu.load_1min_prcnt', 'load_1min_prcnt'],
+    seriesPath: ['cpu.load_1min_prcnt', 'load_1min_prcnt'],
     suffix: '%',
     decimals: 1,
-    subtitlePaths: ['load_5min_prcnt', 'load_15min_prcnt'],
+    subtitlePaths: [
+      ['cpu.load_5min_prcnt', 'load_5min_prcnt'],
+      ['cpu.load_15min_prcnt', 'load_15min_prcnt'],
+    ],
     subtitleLabels: ['5m', '15m'],
   },
   {
@@ -308,9 +319,9 @@ class SystemCard extends HTMLElement {
       const timestamp = entry.last_updated || entry.last_changed || entry.last_updated_iso || entry.last_changed_iso;
       const attributes = entry.attributes || {};
       const value = pickValue(
-        getValueAtPath(attributes, metric.seriesPath),
-        getValueAtPath(attributes, metric.valuePath),
-        ...(metric.fallbackPaths || []).map((path) => getValueAtPath(attributes, path)),
+        getValueByPathSpec(attributes, metric.seriesPath),
+        getValueByPathSpec(attributes, metric.valuePath),
+        ...(metric.fallbackPaths || []).map((path) => getValueByPathSpec(attributes, path)),
       );
       const numericValue = toNumber(value);
 
@@ -360,8 +371,8 @@ class SystemCard extends HTMLElement {
 
   _renderMetric(metric, attrs) {
     const rawValue = pickValue(
-      getValueAtPath(attrs, metric.valuePath),
-      ...(metric.fallbackPaths || []).map((path) => getValueAtPath(attrs, path)),
+      getValueByPathSpec(attrs, metric.valuePath),
+      ...(metric.fallbackPaths || []).map((path) => getValueByPathSpec(attrs, path)),
     );
     const numericValue = toNumber(rawValue);
     const displayValue = numericValue !== null
@@ -371,7 +382,7 @@ class SystemCard extends HTMLElement {
     const subtitleValue = metric.subtitlePaths
       ? metric.subtitlePaths
         .map((path, index) => {
-          const value = toNumber(getValueAtPath(attrs, path));
+          const value = toNumber(getValueByPathSpec(attrs, path));
           if (value === null) {
             return null;
           }
@@ -438,7 +449,7 @@ class SystemCard extends HTMLElement {
         }
 
         .system-wrapper {
-          padding: 16px;
+          padding: 12px;
           background:
             radial-gradient(circle at 18% 18%, rgba(34, 211, 238, 0.10), transparent 26%),
             radial-gradient(circle at 82% 10%, rgba(52, 211, 153, 0.08), transparent 24%),
@@ -448,9 +459,8 @@ class SystemCard extends HTMLElement {
         .system-header {
           display: flex;
           align-items: flex-start;
-          justify-content: space-between;
-          gap: 14px;
-          margin-bottom: 14px;
+          gap: 10px;
+          margin-bottom: 6px;
         }
 
         .system-title-group {
@@ -470,28 +480,23 @@ class SystemCard extends HTMLElement {
         }
 
         .system-subtitle {
-          margin-top: 4px;
-          font-size: 0.88rem;
+          margin-top: 2px;
+          font-size: 0.82rem;
           color: rgba(255, 255, 255, 0.68);
-        }
-
-        .system-status {
-          text-align: right;
-          min-width: 160px;
         }
 
         .system-status-pill {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 8px 12px;
+          padding: 6px 10px;
           border-radius: 999px;
           border: 1px solid rgba(255, 255, 255, 0.10);
-          font-size: 0.78rem;
+          font-size: 0.72rem;
           font-weight: 800;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
 
         .system-status-pill.good {
@@ -507,84 +512,93 @@ class SystemCard extends HTMLElement {
         }
 
         .system-status-detail {
-          font-size: 0.72rem;
+          font-size: 0.66rem;
           letter-spacing: 0.12em;
           text-transform: uppercase;
           color: rgba(255, 255, 255, 0.55);
         }
 
         .system-summary {
-          margin-bottom: 14px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 8px;
         }
 
         .system-badge {
           display: grid;
-          grid-template-columns: 70px minmax(0, 1fr);
-          gap: 12px;
+          grid-template-columns: 48px minmax(0, 1fr);
+          gap: 10px;
           align-items: center;
-          padding: 14px;
-          border-radius: 18px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          min-width: 0;
         }
 
         .system-badge-icon {
-          width: 70px;
-          height: 70px;
+          width: 48px;
+          height: 48px;
           display: grid;
           place-items: center;
-          border-radius: 20px;
-          background: radial-gradient(circle, rgba(34, 211, 238, 0.18), rgba(34, 211, 238, 0.04));
-          border: 1px solid rgba(34, 211, 238, 0.16);
+          border-radius: 14px;
+          background: radial-gradient(circle, rgba(34, 211, 238, 0.12), rgba(34, 211, 238, 0.03));
+          border: 1px solid rgba(34, 211, 238, 0.12);
           color: #58d8ff;
         }
 
         .system-badge-icon .system-logo {
-          width: 44px;
-          height: 44px;
+          width: 34px;
+          height: 34px;
           display: block;
         }
 
         .system-badge-copy {
           min-width: 0;
           display: grid;
-          gap: 4px;
+          gap: 2px;
         }
 
         .system-badge-name {
-          font-size: 1rem;
+          font-size: 0.9rem;
           font-weight: 800;
           line-height: 1.2;
         }
 
         .system-badge-line {
-          font-size: 0.8rem;
+          font-size: 0.72rem;
           color: rgba(255, 255, 255, 0.68);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
 
+        .system-summary-meta {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+          min-width: 0;
+        }
+
         .system-metrics {
           display: grid;
           grid-template-columns: 1fr;
-          gap: 12px;
+          gap: 6px;
         }
 
         .system-metric {
           display: grid;
-          grid-template-columns: 82px 88px minmax(0, 1fr) 175px;
-          gap: 12px;
+          grid-template-columns: 64px 76px minmax(0, 1fr) 128px;
+          gap: 8px;
           align-items: center;
-          min-height: 88px;
-          padding: 12px 14px;
-          border-radius: 18px;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(255, 255, 255, 0.03);
+          min-height: 54px;
+          padding: 6px 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: transparent;
         }
 
         .system-metric-label {
-          font-size: 0.7rem;
+          font-size: 0.66rem;
           font-weight: 800;
           letter-spacing: 0.12em;
           text-transform: uppercase;
@@ -592,20 +606,20 @@ class SystemCard extends HTMLElement {
         }
 
         .system-metric-value {
-          font-size: 1.1rem;
+          font-size: 0.98rem;
           font-weight: 800;
           line-height: 1.1;
           justify-self: start;
         }
 
         .system-metric-value span {
-          font-size: 0.78rem;
+          font-size: 0.72rem;
           font-weight: 700;
           opacity: 0.75;
         }
 
         .system-metric-subtitle {
-          font-size: 0.72rem;
+          font-size: 0.68rem;
           color: rgba(255, 255, 255, 0.62);
           line-height: 1.3;
           min-width: 0;
@@ -616,12 +630,12 @@ class SystemCard extends HTMLElement {
         }
 
         .system-metric-chart {
-          min-height: 42px;
+          min-height: 30px;
         }
 
         .sparkline {
           width: 100%;
-          height: 42px;
+          height: 30px;
           display: block;
           overflow: visible;
         }
@@ -633,25 +647,19 @@ class SystemCard extends HTMLElement {
 
         @media (max-width: 980px) {
           .system-metric {
-            grid-template-columns: 72px 82px minmax(0, 1fr) 150px;
+            grid-template-columns: 58px 70px minmax(0, 1fr) 112px;
           }
 
-          .system-status {
-            min-width: 0;
-          }
         }
 
         @media (max-width: 720px) {
           .system-wrapper {
-            padding: 12px;
+            padding: 10px;
           }
 
           .system-header {
             flex-direction: column;
-          }
-
-          .system-status {
-            text-align: left;
+            gap: 8px;
           }
 
           .system-metric {
@@ -660,12 +668,21 @@ class SystemCard extends HTMLElement {
               "label value"
               "subtitle subtitle"
               "chart chart";
+            gap: 4px 8px;
           }
 
           .system-metric-label { grid-area: label; }
           .system-metric-value { grid-area: value; }
           .system-metric-subtitle { grid-area: subtitle; }
           .system-metric-chart { grid-area: chart; }
+
+          .system-summary {
+            align-items: flex-start;
+          }
+
+          .system-summary-meta {
+            justify-content: flex-start;
+          }
         }
       </style>
     `;
@@ -674,16 +691,12 @@ class SystemCard extends HTMLElement {
       ${styles}
       <ha-card>
         <div class="system-wrapper">
-          <div class="system-header">
-            <div class="system-title-group">
-              <div class="system-title">${escapeHtml(this._config.title)} <span>/ Raspberry Pi</span></div>
-              <div class="system-subtitle">${escapeHtml(model)}</div>
-            </div>
-            <div class="system-status">
-              <div class="system-status-pill ${status.tone}">${escapeHtml(status.label)}</div>
-              <div class="system-status-detail">${escapeHtml(status.detail)}</div>
-            </div>
+        <div class="system-header">
+          <div class="system-title-group">
+            <div class="system-title">${escapeHtml(this._config.title)} <span>/ Raspberry Pi</span></div>
+            <div class="system-subtitle">${escapeHtml(model)}</div>
           </div>
+        </div>
 
           <div class="system-summary">
             <div class="system-badge">
@@ -693,6 +706,10 @@ class SystemCard extends HTMLElement {
                 <div class="system-badge-line">${escapeHtml(model)}</div>
                 <div class="system-badge-line">Uptime ${escapeHtml(attrs.up_time || '--')} · Updated ${escapeHtml(formatLastUpdate(lastUpdate))}</div>
               </div>
+            </div>
+            <div class="system-summary-meta">
+              <div class="system-status-pill ${status.tone}">${escapeHtml(status.label)}</div>
+              <div class="system-status-detail">${escapeHtml(status.detail)}</div>
             </div>
           </div>
 
