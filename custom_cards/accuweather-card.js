@@ -61,6 +61,35 @@ function aqiMeta(value) {
   return AQI_LEVELS.find((level) => number <= level.max) || AQI_LEVELS[AQI_LEVELS.length - 1];
 }
 
+function allergyMeta(risk) {
+  const normalized = String(risk || '').trim().toLowerCase();
+  if (!normalized) {
+    return { label: 'Unknown', color: 'var(--secondary-text-color)' };
+  }
+
+  if (normalized.includes('extremely high') || normalized.includes('sangat tinggi')) {
+    return { label: risk, color: '#d7263d' };
+  }
+
+  if (normalized.includes('very high')) {
+    return { label: risk, color: '#f94144' };
+  }
+
+  if (normalized.includes('high') || normalized.includes('tinggi')) {
+    return { label: risk, color: '#f8961e' };
+  }
+
+  if (normalized.includes('moderate') || normalized.includes('sedang')) {
+    return { label: risk, color: '#ffd166' };
+  }
+
+  if (normalized.includes('low') || normalized.includes('rendah')) {
+    return { label: risk, color: '#3ddc97' };
+  }
+
+  return { label: risk, color: 'var(--secondary-text-color)' };
+}
+
 function normalizeConditionLabel(condition) {
   if (!condition) {
     return '';
@@ -462,20 +491,22 @@ class AccuWeatherCard extends HTMLElement {
       `
       : '';
 
-    const allergyPanel = (attrs.allergy_allergen || attrs.allergy_risk || attrs.allergy_safety_tips || attrs.allergy_average_wind || attrs.allergy_max_wind_gusts || attrs.allergy_realfeel_high)
+    const allergyInfo = allergyMeta(attrs.allergy_risk);
+    const allergyPanel = (attrs.allergy_allergen || attrs.allergy_risk)
       ? `
         <section class="allergy-panel">
           <div class="section-title">
             <span>Allergy</span>
-            <span>${escapeHtml(attrs.allergy_risk || 'Forecast')}</span>
+            <span>${escapeHtml(allergyInfo.label)}</span>
           </div>
           <div class="allergy-body">
-            ${attrs.allergy_allergen ? `<div class="allergy-line"><strong>Allergen:</strong> ${escapeHtml(attrs.allergy_allergen)}</div>` : ''}
-            ${attrs.allergy_risk ? `<div class="allergy-line">${escapeHtml(attrs.allergy_risk)}</div>` : ''}
-            ${attrs.allergy_safety_tips ? `<div class="allergy-line">${escapeHtml(attrs.allergy_safety_tips)}</div>` : ''}
-            ${attrs.allergy_average_wind ? `<div class="allergy-line"><strong>Average wind:</strong> ${escapeHtml(attrs.allergy_average_wind)}</div>` : ''}
-            ${attrs.allergy_max_wind_gusts ? `<div class="allergy-line"><strong>Max wind gusts:</strong> ${escapeHtml(attrs.allergy_max_wind_gusts)}</div>` : ''}
-            ${attrs.allergy_realfeel_high ? `<div class="allergy-line"><strong>RealFeel high:</strong> ${escapeHtml(attrs.allergy_realfeel_high)}</div>` : ''}
+            <div class="allergy-icon">
+              <ha-icon icon="mdi:allergy"></ha-icon>
+            </div>
+            <div class="allergy-copy">
+              <div class="allergy-line allergy-allergen">${escapeHtml(attrs.allergy_allergen || 'Unknown allergen')}</div>
+              <div class="allergy-line allergy-risk" style="color: ${allergyInfo.color};">${escapeHtml(allergyInfo.label)}</div>
+            </div>
           </div>
         </section>
       `
@@ -851,16 +882,50 @@ class AccuWeatherCard extends HTMLElement {
 
           .allergy-body {
             display: grid;
-            gap: 8px;
-            font-size: 0.9rem;
-            line-height: 1.45;
+            grid-template-columns: 64px minmax(0, 1fr);
+            gap: 14px;
+            align-items: center;
+            font-size: 0.95rem;
+            line-height: 1.35;
+          }
+
+          .allergy-icon {
+            width: 64px;
+            height: 64px;
+            display: grid;
+            place-items: center;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            color: var(--primary-color);
+          }
+
+          .allergy-icon ha-icon {
+            --mdc-icon-size: 34px;
+            width: 34px;
+            height: 34px;
+            display: block;
+            line-height: 1;
+          }
+
+          .allergy-copy {
+            display: grid;
+            gap: 4px;
+            min-width: 0;
           }
 
           .allergy-line {
-            padding: 10px 12px;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-weight: 700;
+            line-height: 1.25;
+          }
+
+          .allergy-allergen {
+            color: var(--primary-text-color);
+          }
+
+          .allergy-risk {
+            font-size: 1.02rem;
+            font-weight: 800;
           }
 
           .forecast-section + .forecast-section {
