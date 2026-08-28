@@ -265,6 +265,16 @@ const SYSTEM_METRICS = [
 ];
 
 class SystemCard extends HTMLElement {
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: 'entity', required: true, selector: { entity: {} } },
+        { name: 'title', selector: { text: {} } },
+        { name: 'history_hours', selector: { number: { min: 1, max: 168, mode: 'box' } } },
+      ],
+    };
+  }
+
   static getStubConfig() {
     return {
       entity: 'sensor.rpi_raspberrypi_monitor',
