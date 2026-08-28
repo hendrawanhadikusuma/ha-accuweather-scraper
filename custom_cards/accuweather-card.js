@@ -146,6 +146,11 @@ function forecastLabel(item, isHourly = false) {
     return '';
   }
 
+  const labelText = String(item.time_label || item.date_label || '').trim().toLowerCase();
+  if (labelText === 'hari ini' || labelText === 'today') {
+    return 'Hari ini';
+  }
+
   if (isHourly) {
     if (item.time_label && String(item.time_label).trim().toLowerCase() === 'now') {
       return item.time_label;
@@ -169,14 +174,6 @@ function forecastLabel(item, isHourly = false) {
     }
   }
 
-  if (item.time_label) {
-    return item.time_label;
-  }
-
-  if (item.date_label) {
-    return item.date_label;
-  }
-
   if (item.datetime) {
     try {
       const date = new Date(item.datetime);
@@ -184,6 +181,14 @@ function forecastLabel(item, isHourly = false) {
     } catch (error) {
       return String(item.datetime).slice(0, 3);
     }
+  }
+
+  if (item.date_label) {
+    return String(item.date_label).split(',')[0].trim() || item.date_label;
+  }
+
+  if (item.time_label) {
+    return item.time_label;
   }
 
   return '';
