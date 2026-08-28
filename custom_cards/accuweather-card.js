@@ -180,9 +180,9 @@ function forecastLabel(item, isHourly = false) {
   if (item.datetime) {
     try {
       const date = new Date(item.datetime);
-      return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(date);
+      return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date);
     } catch (error) {
-      return String(item.datetime).slice(0, 10);
+      return String(item.datetime).slice(0, 3);
     }
   }
 
@@ -520,7 +520,7 @@ class AccuWeatherCard extends HTMLElement {
       ['Cloud Cover', attrs.cloud_cover, '%'],
       ['Precip Prob.', attrs.precipitation_probability, '%'],
       ['Dew Point', attrs.dew_point, temperatureUnit],
-      ['Cloud Ceiling', attrs.cloud_ceiling, 'ft'],
+      ['Cloud Ceiling', attrs.cloud_ceiling, 'm'],
     ];
     const weatherForecastPanel = `
       <section class="weather-panel" style="grid-column: ${weatherPanelColumn};">
@@ -698,6 +698,7 @@ class AccuWeatherCard extends HTMLElement {
             gap: 12px;
             margin-bottom: 14px;
             font-size: 0.78rem;
+            font-weight: 800;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             opacity: 0.78;
@@ -790,10 +791,9 @@ class AccuWeatherCard extends HTMLElement {
 
           .metric-inline {
             display: flex;
-            align-items: baseline;
+            align-items: center;
             justify-content: space-between;
             gap: 12px;
-            white-space: nowrap;
             flex: 1 1 0;
             min-width: 0;
           }
@@ -803,6 +803,12 @@ class AccuWeatherCard extends HTMLElement {
             opacity: 0.68;
             text-transform: uppercase;
             letter-spacing: 0.08em;
+            line-height: 1.15;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            text-wrap: balance;
+            flex: 1 1 auto;
+            min-width: 0;
           }
 
           .metric-inline-separator {
@@ -816,6 +822,7 @@ class AccuWeatherCard extends HTMLElement {
             font-size: 0.98rem;
             font-weight: 700;
             flex: 0 0 auto;
+            white-space: nowrap;
           }
 
           .metric-inline-value span {
@@ -836,6 +843,10 @@ class AccuWeatherCard extends HTMLElement {
             text-transform: uppercase;
             letter-spacing: 0.08em;
             margin-bottom: 4px;
+            line-height: 1.2;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            text-wrap: balance;
           }
 
           .metric-value {
@@ -1052,14 +1063,20 @@ class AccuWeatherCard extends HTMLElement {
             align-items: baseline;
             gap: 8px;
             font-size: 0.78rem;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.08em;
             color: var(--primary-color);
             margin-bottom: 10px;
           }
 
+          .forecast-section-title-main {
+            font-weight: 800;
+          }
+
           .forecast-section-title-secondary {
             color: var(--secondary-text-color);
+            font-weight: 500;
           }
 
           .forecast-strip {

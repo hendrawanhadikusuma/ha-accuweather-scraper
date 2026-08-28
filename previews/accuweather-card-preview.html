@@ -71,6 +71,7 @@
       gap: 12px;
       margin-bottom: 14px;
       font-size: 0.76rem;
+      font-weight: 800;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--accent);
@@ -155,10 +156,9 @@
 
     .metric-inline {
       display: flex;
-      align-items: baseline;
+      align-items: center;
       justify-content: space-between;
       gap: 12px;
-      white-space: nowrap;
       flex: 1 1 0;
       min-width: 0;
     }
@@ -168,6 +168,12 @@
       opacity: 0.68;
       text-transform: uppercase;
       letter-spacing: 0.08em;
+      line-height: 1.15;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-wrap: balance;
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .metric-inline-separator {
@@ -181,6 +187,7 @@
       font-size: 0.98rem;
       font-weight: 700;
       flex: 0 0 auto;
+      white-space: nowrap;
     }
 
     .metric-inline-value span {
@@ -205,6 +212,10 @@
       text-transform: uppercase;
       letter-spacing: 0.08em;
       margin-bottom: 4px;
+      line-height: 1.2;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      text-wrap: balance;
     }
 
     .metric-value,
@@ -440,14 +451,20 @@
       align-items: baseline;
       gap: 8px;
       font-size: 0.78rem;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--accent);
       margin-bottom: 10px;
     }
 
+    .forecast-section-title-main {
+      font-weight: 800;
+    }
+
     .forecast-section-title-secondary {
       color: var(--muted);
+      font-weight: 500;
     }
 
     .forecast-strip {
@@ -641,7 +658,7 @@
               <div class="metric"><div class="metric-label">Cloud Cover</div><div class="metric-value">68 <span>%</span></div></div>
               <div class="metric"><div class="metric-label">Precip Prob.</div><div class="metric-value">58 <span>%</span></div></div>
               <div class="metric"><div class="metric-label">Dew Point</div><div class="metric-value">26 <span>°C</span></div></div>
-              <div class="metric"><div class="metric-label">Cloud Ceiling</div><div class="metric-value">8200 <span>ft</span></div></div>
+              <div class="metric"><div class="metric-label">Cloud Ceiling</div><div class="metric-value">2500 <span>m</span></div></div>
             </div>
           </section>
 
@@ -695,11 +712,11 @@
             <div class="forecast-section">
               <div class="forecast-section-title"><span>Forecast</span><span class="forecast-section-title-secondary">Daily</span></div>
               <div class="forecast-strip">
-                <div class="forecast-card"><div class="forecast-label">Tue, Aug 26</div><div class="forecast-icon">⛅</div><div class="forecast-range">33° / 25°</div><div class="forecast-summary">Partly cloudy, showers late</div><div class="forecast-precip">💧 58%</div></div>
-                <div class="forecast-card"><div class="forecast-label">Wed, Aug 27</div><div class="forecast-icon">☀</div><div class="forecast-range">34° / 24°</div><div class="forecast-summary">Mostly sunny</div><div class="forecast-precip">💧 12%</div></div>
-                <div class="forecast-card"><div class="forecast-label">Thu, Aug 28</div><div class="forecast-icon">🌧</div><div class="forecast-range">32° / 25°</div><div class="forecast-summary">Rain and thunder</div><div class="forecast-precip">💧 72%</div></div>
-                <div class="forecast-card"><div class="forecast-label">Fri, Aug 29</div><div class="forecast-icon">☁</div><div class="forecast-range">31° / 24°</div><div class="forecast-summary">Cloudy and humid</div><div class="forecast-precip">💧 40%</div></div>
-                <div class="forecast-card"><div class="forecast-label">Sat, Aug 30</div><div class="forecast-icon">🌦</div><div class="forecast-range">32° / 25°</div><div class="forecast-summary">Afternoon showers</div><div class="forecast-precip">💧 63%</div></div>
+                <div class="forecast-card"><div class="forecast-label">Tue</div><div class="forecast-icon">⛅</div><div class="forecast-range">33° / 25°</div><div class="forecast-summary">Partly cloudy, showers late</div><div class="forecast-precip">💧 58%</div></div>
+                <div class="forecast-card"><div class="forecast-label">Wed</div><div class="forecast-icon">☀</div><div class="forecast-range">34° / 24°</div><div class="forecast-summary">Mostly sunny</div><div class="forecast-precip">💧 12%</div></div>
+                <div class="forecast-card"><div class="forecast-label">Thu</div><div class="forecast-icon">🌧</div><div class="forecast-range">32° / 25°</div><div class="forecast-summary">Rain and thunder</div><div class="forecast-precip">💧 72%</div></div>
+                <div class="forecast-card"><div class="forecast-label">Fri</div><div class="forecast-icon">☁</div><div class="forecast-range">31° / 24°</div><div class="forecast-summary">Cloudy and humid</div><div class="forecast-precip">💧 40%</div></div>
+                <div class="forecast-card"><div class="forecast-label">Sat</div><div class="forecast-icon">🌦</div><div class="forecast-range">32° / 25°</div><div class="forecast-summary">Afternoon showers</div><div class="forecast-precip">💧 63%</div></div>
               </div>
             </div>
           </section>
