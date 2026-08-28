@@ -521,6 +521,8 @@ class AccuWeatherScraper:
                 re.IGNORECASE,
             )
             heat_index_text = heat_index_match.group(1) if heat_index_match else None
+        if not heat_index_text:
+            heat_index_text = realfeel_shade_text or realfeel_text or temperature_text
 
         return {
             "temperature": self._number(temperature_text),
@@ -590,6 +592,8 @@ class AccuWeatherScraper:
                 re.IGNORECASE,
             )
             heat_index_text = heat_index_match.group(1) if heat_index_match else None
+        if not heat_index_text:
+            heat_index_text = realfeel_text or temperature_text
 
         condition = self._text(soup, [".phrase", ".current-weather-info .phrase"])
 

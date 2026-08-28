@@ -505,8 +505,8 @@ class AccuWeatherCard extends HTMLElement {
     const aqiStatusSize = gaugeStatusFontSize(aqi.label);
     const weatherMetricRow1 = [
       ['Real Feel', attrs.realfeel_temperature, temperatureUnit],
-      ['Real Feel Shade', pickValue(attrs.realfeel_shade_temperature, attrs.realfeel_shade, attrs.realfeel_shade_temp), temperatureUnit],
-      ['Heat Index', pickValue(attrs.heat_index, attrs.heatindex, attrs.heat_index_temperature), temperatureUnit],
+      ['Real Feel Shade', pickValue(attrs.realfeel_shade_temperature, attrs.realfeel_shade, attrs.realfeel_shade_temp, attrs.apparent_temperature, attrs.realfeel_temperature, currentTemperature), temperatureUnit],
+      ['Heat Index', pickValue(attrs.heat_index, attrs.heatindex, attrs.heat_index_temperature, attrs.apparent_temperature, attrs.realfeel_temperature, currentTemperature), temperatureUnit],
     ];
     const weatherMetricRow2 = [
       ['Humidity', humidity, '%'],
@@ -526,7 +526,7 @@ class AccuWeatherCard extends HTMLElement {
       <section class="weather-panel" style="grid-column: ${weatherPanelColumn};">
         <div class="section-title">
           <span>${escapeHtml(this._config.title)}</span>
-          <span>${escapeHtml(location)}</span>
+          <span class="section-title-secondary">${escapeHtml(location)}</span>
         </div>
 
         <div class="hero">
@@ -599,7 +599,6 @@ class AccuWeatherCard extends HTMLElement {
         <section class="allergy-panel">
           <div class="section-title">
             <span>Allergy</span>
-            <span>${escapeHtml(allergyInfo.label)}</span>
           </div>
           <div class="allergy-body">
             <div class="allergy-icon">
@@ -619,14 +618,20 @@ class AccuWeatherCard extends HTMLElement {
       : `
         <section class="forecast-panel">
           <div class="forecast-section">
-            <div class="forecast-section-title">Forecast / Hourly</div>
+            <div class="forecast-section-title">
+              <span class="forecast-section-title-main">Forecast</span>
+              <span class="forecast-section-title-secondary">Hourly</span>
+            </div>
             <div class="forecast-strip">
               ${hourlyForecast.length ? hourlyForecast.map((item) => this._renderForecastCard(item, true)).join('') : '<div class="empty-inline">No hourly forecast data available.</div>'}
             </div>
           </div>
 
           <div class="forecast-section">
-            <div class="forecast-section-title">Forecast / Daily</div>
+            <div class="forecast-section-title">
+              <span class="forecast-section-title-main">Forecast</span>
+              <span class="forecast-section-title-secondary">Daily</span>
+            </div>
             <div class="forecast-strip">
               ${dailyForecast.length ? dailyForecast.map((item) => this._renderForecastCard(item, false)).join('') : '<div class="empty-inline">No daily forecast data available.</div>'}
             </div>
@@ -699,6 +704,10 @@ class AccuWeatherCard extends HTMLElement {
             color: var(--primary-color);
           }
 
+          .section-title-secondary {
+            color: var(--secondary-text-color);
+          }
+
           .hero {
             display: grid;
             grid-template-columns: 1fr 112px;
@@ -761,6 +770,10 @@ class AccuWeatherCard extends HTMLElement {
           .metric-row {
             display: grid;
             gap: 10px;
+          }
+
+          .weather-panel .metric-row + .metric-row {
+            margin-top: 10px;
           }
 
           .metric-row-inline {
@@ -1035,11 +1048,18 @@ class AccuWeatherCard extends HTMLElement {
           }
 
           .forecast-section-title {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
             font-size: 0.78rem;
             text-transform: uppercase;
             letter-spacing: 0.08em;
-            opacity: 0.65;
+            color: var(--primary-color);
             margin-bottom: 10px;
+          }
+
+          .forecast-section-title-secondary {
+            color: var(--secondary-text-color);
           }
 
           .forecast-strip {

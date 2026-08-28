@@ -76,6 +76,10 @@
       color: var(--accent);
     }
 
+    .section-title-secondary {
+      color: var(--muted);
+    }
+
     .hero {
       display: grid;
       grid-template-columns: 1fr 112px;
@@ -131,6 +135,10 @@
     .metric-row {
       display: grid;
       gap: 10px;
+    }
+
+    .weather-panel .metric-row + .metric-row {
+      margin-top: 10px;
     }
 
     .metric-row-inline {
@@ -428,11 +436,18 @@
     }
 
     .forecast-section-title {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
       font-size: 0.78rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      opacity: 0.65;
+      color: var(--accent);
       margin-bottom: 10px;
+    }
+
+    .forecast-section-title-secondary {
+      color: var(--muted);
     }
 
     .forecast-strip {
@@ -592,7 +607,7 @@
           <section class="weather-panel">
             <div class="section-title">
               <span>AccuWeather</span>
-              <span>Palmerah, Jakarta</span>
+              <span class="section-title-secondary">Palmerah, Jakarta</span>
             </div>
             <div class="hero">
               <div>
@@ -662,11 +677,11 @@
         <section class="forecast-panel">
             <div class="section-title">
               <span>Forecast</span>
-              <span>Hourly / Daily</span>
+              <span class="section-title-secondary">Hourly / Daily</span>
             </div>
 
             <div class="forecast-section">
-              <div class="forecast-section-title">Hourly</div>
+              <div class="forecast-section-title"><span>Forecast</span><span class="forecast-section-title-secondary">Hourly</span></div>
               <div class="forecast-strip">
                 <div class="forecast-card"><div class="forecast-label">12:00 AM</div><div class="forecast-icon">⛅</div><div class="forecast-temp">31°</div><div class="forecast-precip">💧 58%</div></div>
                 <div class="forecast-card"><div class="forecast-label">1:00 AM</div><div class="forecast-icon">☀</div><div class="forecast-temp">32°</div><div class="forecast-precip">💧 22%</div></div>
@@ -678,7 +693,7 @@
             </div>
 
             <div class="forecast-section">
-              <div class="forecast-section-title">Daily</div>
+              <div class="forecast-section-title"><span>Forecast</span><span class="forecast-section-title-secondary">Daily</span></div>
               <div class="forecast-strip">
                 <div class="forecast-card"><div class="forecast-label">Tue, Aug 26</div><div class="forecast-icon">⛅</div><div class="forecast-range">33° / 25°</div><div class="forecast-summary">Partly cloudy, showers late</div><div class="forecast-precip">💧 58%</div></div>
                 <div class="forecast-card"><div class="forecast-label">Wed, Aug 27</div><div class="forecast-icon">☀</div><div class="forecast-range">34° / 24°</div><div class="forecast-summary">Mostly sunny</div><div class="forecast-precip">💧 12%</div></div>
@@ -691,7 +706,6 @@
 
         <section class="allergy-panel">
             <div class="section-title">
-              <span>Allergy</span>
               <span>High</span>
             </div>
             <div class="allergy-body">
