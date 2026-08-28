@@ -84,6 +84,34 @@ history_hours: 24
 
 The sparkline charts use Home Assistant history data for the selected entity, so Recorder/history needs to be available for chart traces to appear.
 
+## Network card
+
+The repo also includes a `network-card` at `custom_cards/network-card.js` for router and UPnP/IGD data.
+
+Latency is not exposed by UPnP/IGD itself. Use a Home Assistant `Ping` sensor or another RTT/latency sensor for the `latency_entity` field.
+
+Example config:
+
+```yaml
+type: custom:network-card
+entity: sensor.tl_wr820n_300mbps_wi_fi_router_external_ip
+title: Network
+download_speed_entity: sensor.tl_wr820n_300mbps_wi_fi_router_download_speed
+upload_speed_entity: sensor.tl_wr820n_300mbps_wi_fi_router_upload_speed
+external_ip_entity: sensor.tl_wr820n_300mbps_wi_fi_router_external_ip
+connected_devices_entity: sensor.router_connected_devices
+latency_entity: sensor.router_latency
+history_hours: 24
+```
+
+Typical latency sources:
+
+- `Ping` integration against your router IP for local LAN latency.
+- `Ping` integration against a public endpoint such as `1.1.1.1` or `8.8.8.8` for internet latency.
+- Any template or command-line sensor that publishes round-trip time in milliseconds.
+
+If your router integration exposes the connected-device count or WAN IP as attributes on a single router entity, you can keep `entity` pointed at that main router state and leave the optional `*_entity` fields empty.
+
 Example card config:
 
 ```yaml
