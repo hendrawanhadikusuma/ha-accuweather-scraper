@@ -501,7 +501,7 @@ class AccuWeatherCard extends HTMLElement {
           </div>
           <div class="allergy-body">
             <div class="allergy-icon">
-              <ha-icon icon="mdi:allergy"></ha-icon>
+              <ha-icon icon="mdi:air-filter"></ha-icon>
             </div>
             <div class="allergy-copy">
               <div class="allergy-line allergy-allergen">${escapeHtml(attrs.allergy_allergen || 'Unknown allergen')}</div>
