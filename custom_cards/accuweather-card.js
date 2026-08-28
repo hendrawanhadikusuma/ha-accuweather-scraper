@@ -669,7 +669,9 @@ class AccuWeatherCard extends HTMLElement {
           ha-card {
             overflow: hidden;
             height: 100%;
-            background: linear-gradient(180deg, rgba(7, 15, 28, 0.98), rgba(4, 10, 20, 0.98));
+            background: radial-gradient(circle at 18% 18%, rgba(34, 211, 238, 0.10), transparent 26%),
+              radial-gradient(circle at 82% 10%, rgba(52, 211, 153, 0.08), transparent 24%),
+              linear-gradient(180deg, rgba(7, 15, 28, 0.94), rgba(3, 8, 16, 0.98));
           }
 
           .wrapper {
@@ -695,16 +697,6 @@ class AccuWeatherCard extends HTMLElement {
           .allergy-panel,
           .sensor-panel {
             grid-column: 1 / -1;
-          }
-
-          .weather-panel,
-          .aqi-panel,
-          .forecast-panel,
-          .allergy-panel,
-          .sensor-panel {
-            background: radial-gradient(circle at 18% 18%, rgba(34, 211, 238, 0.10), transparent 26%),
-            radial-gradient(circle at 82% 10%, rgba(52, 211, 153, 0.08), transparent 24%),
-            linear-gradient(180deg, rgba(7, 15, 28, 0.94), rgba(3, 8, 16, 0.98));
           }
 
           .section-title {
