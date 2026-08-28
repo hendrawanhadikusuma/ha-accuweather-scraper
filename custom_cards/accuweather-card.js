@@ -696,6 +696,17 @@ class AccuWeatherCard extends HTMLElement {
             grid-column: 1 / -1;
           }
 
+          .weather-panel,
+          .aqi-panel,
+          .forecast-panel,
+          .allergy-panel,
+          .sensor-panel {
+            padding: 14px;
+            border-radius: 18px;
+            background: var(--card-background-color, rgba(255, 255, 255, 0.03));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+          }
+
           .section-title {
             display: flex;
             align-items: baseline;
