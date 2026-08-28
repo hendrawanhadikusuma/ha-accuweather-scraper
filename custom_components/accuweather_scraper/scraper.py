@@ -498,9 +498,35 @@ class AccuWeatherScraper:
         if not cloud_ceiling_text:
             cloud_ceiling_text = self._extract_label_value(detail_values, "cloud ceiling", "langit-langit awan")
 
+        realfeel_shade_text = self._extract_label_value(
+            detail_values,
+            "realfeel shade",
+            "realfeel shade™",
+            "realfeel shade®",
+            "realfeel shade temperature",
+        )
+        if not realfeel_shade_text:
+            shade_match = re.search(
+                r"RealFeel\s*Shade(?:™|®)?(?:\s*Temperature)?\s*(-?\d+(?:[.,]\d+)?)°?",
+                page_text,
+                re.IGNORECASE,
+            )
+            realfeel_shade_text = shade_match.group(1) if shade_match else None
+
+        heat_index_text = self._extract_label_value(detail_values, "heat index", "heatindex")
+        if not heat_index_text:
+            heat_index_match = re.search(
+                r"Heat\s*Index\s*(-?\d+(?:[.,]\d+)?)°?",
+                page_text,
+                re.IGNORECASE,
+            )
+            heat_index_text = heat_index_match.group(1) if heat_index_match else None
+
         return {
             "temperature": self._number(temperature_text),
             "realfeel_temperature": self._number(realfeel_text),
+            "realfeel_shade_temperature": self._number(realfeel_shade_text),
+            "heat_index": self._number(heat_index_text),
             "humidity": self._number(humidity_text),
             "wind_speed": self._number(wind_text),
             "gust_speed": self._number(gust_text),
@@ -541,6 +567,30 @@ class AccuWeatherScraper:
             realfeel_match = re.search(r"RealFeel®?\s*(-?\d+(?:[.,]\d+)?)°?", page_text, re.IGNORECASE)
             realfeel_text = realfeel_match.group(1) if realfeel_match else None
 
+        realfeel_shade_text = self._extract_label_value(
+            detail_values,
+            "realfeel shade",
+            "realfeel shade™",
+            "realfeel shade®",
+            "realfeel shade temperature",
+        )
+        if not realfeel_shade_text:
+            shade_match = re.search(
+                r"RealFeel\s*Shade(?:™|®)?(?:\s*Temperature)?\s*(-?\d+(?:[.,]\d+)?)°?",
+                page_text,
+                re.IGNORECASE,
+            )
+            realfeel_shade_text = shade_match.group(1) if shade_match else None
+
+        heat_index_text = self._extract_label_value(detail_values, "heat index", "heatindex")
+        if not heat_index_text:
+            heat_index_match = re.search(
+                r"Heat\s*Index\s*(-?\d+(?:[.,]\d+)?)°?",
+                page_text,
+                re.IGNORECASE,
+            )
+            heat_index_text = heat_index_match.group(1) if heat_index_match else None
+
         condition = self._text(soup, [".phrase", ".current-weather-info .phrase"])
 
         def fallback_value(patterns: list[str]) -> str | None:
@@ -553,6 +603,8 @@ class AccuWeatherScraper:
         result: dict[str, Any] = {
             "temperature": self._number(temperature_text),
             "realfeel_temperature": self._number(realfeel_text),
+            "realfeel_shade_temperature": self._number(realfeel_shade_text),
+            "heat_index": self._number(heat_index_text),
             "humidity": self._number(self._extract_label_value(detail_values, "kelembapan")),
             "wind_speed": self._number(self._extract_label_value(detail_values, "angin")),
             "gust_speed": self._number(self._extract_label_value(detail_values, "angin kencang")),

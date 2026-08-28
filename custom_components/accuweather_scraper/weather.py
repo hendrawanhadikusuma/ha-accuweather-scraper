@@ -175,6 +175,8 @@ class AccuWeatherWeather(CoordinatorEntity[AccuWeatherCoordinator], WeatherEntit
         weather_metric_keys = [
             "temperature",
             "realfeel_temperature",
+            "realfeel_shade_temperature",
+            "heat_index",
             "humidity",
             "wind_speed",
             "gust_speed",

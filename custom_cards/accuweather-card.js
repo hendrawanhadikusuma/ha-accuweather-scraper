@@ -21,6 +21,25 @@ const CONDITION_LABELS = {
   pouring: 'Heavy rain',
 };
 
+const DEFAULT_GRID_OPTIONS = {
+  columns: 6,
+  rows: 'auto',
+  min_rows: 4,
+};
+
+const DEFAULT_CARD_CONFIG = {
+  title: 'AccuWeather',
+  sensors: [],
+  forecast_limit: 5,
+  hourly_forecast_limit: 6,
+  show_current: true,
+  show_air_quality: true,
+  show_allergy: true,
+  show_forecast: true,
+  show_sensors: true,
+  grid_options: DEFAULT_GRID_OPTIONS,
+};
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -213,24 +232,77 @@ function gaugeStatusFontSize(label) {
   return 15;
 }
 
+function normalizeGridOptions(config) {
+  const gridOptions = {
+    ...DEFAULT_GRID_OPTIONS,
+    ...(config?.grid_options || {}),
+  };
+
+  if (config?.grid_columns !== undefined && gridOptions.columns === DEFAULT_GRID_OPTIONS.columns) {
+    gridOptions.columns = config.grid_columns;
+  }
+
+  if (config?.grid_rows !== undefined && gridOptions.rows === DEFAULT_GRID_OPTIONS.rows) {
+    gridOptions.rows = config.grid_rows;
+  }
+
+  if (config?.min_rows !== undefined && gridOptions.min_rows === DEFAULT_GRID_OPTIONS.min_rows) {
+    gridOptions.min_rows = config.min_rows;
+  }
+
+  gridOptions.columns = normalizeGridValue(gridOptions.columns, DEFAULT_GRID_OPTIONS.columns);
+  gridOptions.rows = normalizeGridValue(gridOptions.rows, DEFAULT_GRID_OPTIONS.rows);
+  gridOptions.min_rows = normalizeIntegerValue(gridOptions.min_rows, DEFAULT_GRID_OPTIONS.min_rows);
+
+  return gridOptions;
+}
+
+function normalizeCardConfig(config) {
+  const sensors = Array.isArray(config?.sensors)
+    ? config.sensors
+    : typeof config?.sensors === 'string'
+      ? parseSensorList(config.sensors)
+      : [];
+
+  return {
+    ...DEFAULT_CARD_CONFIG,
+    ...config,
+    forecast_limit: normalizeIntegerValue(config?.forecast_limit, DEFAULT_CARD_CONFIG.forecast_limit),
+    hourly_forecast_limit: normalizeIntegerValue(config?.hourly_forecast_limit, DEFAULT_CARD_CONFIG.hourly_forecast_limit),
+    sensors: sensors.filter((entityId) => entityId !== null && entityId !== undefined && entityId !== ''),
+    grid_options: normalizeGridOptions(config),
+  };
+}
+
+function parseSensorList(value) {
+  return String(value || '')
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeGridValue(value, fallback) {
+  const text = String(value ?? '').trim();
+  if (!text) {
+    return fallback;
+  }
+
+  if (text === 'auto' || text === 'full') {
+    return text;
+  }
+
+  const number = Number(text);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function normalizeIntegerValue(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 class AccuWeatherCard extends HTMLElement {
   setConfig(config) {
-    if (!config || !config.entity) {
-      throw new Error('You need to define an entity');
-    }
-
-    this._config = {
-      title: 'AccuWeather',
-      sensors: [],
-      forecast_limit: 5,
-      hourly_forecast_limit: 6,
-      show_current: true,
-      show_air_quality: true,
-      show_allergy: true,
-      show_forecast: true,
-      show_sensors: true,
-      ...config,
-    };
+    this._config = normalizeCardConfig(config);
 
     this._render();
   }
@@ -245,11 +317,7 @@ class AccuWeatherCard extends HTMLElement {
   }
 
   getGridOptions() {
-    return {
-      columns: this._config.grid_columns || 6,
-      rows: this._config.grid_rows || 'auto',
-      min_rows: this._config.min_rows || 4,
-    };
+    return normalizeGridOptions(this._config);
   }
 
   _stateFor(entityId) {
@@ -338,6 +406,17 @@ class AccuWeatherCard extends HTMLElement {
 
   _render() {
     if (!this._config || !this._hass) {
+      return;
+    }
+
+    if (!this._config.entity) {
+      this.innerHTML = `
+        <ha-card>
+          <div class="wrapper">
+            <div class="empty">You need to define a weather entity.</div>
+          </div>
+        </ha-card>
+      `;
       return;
     }
 
@@ -1114,6 +1193,273 @@ class AccuWeatherCard extends HTMLElement {
     `;
   }
 }
+
+class AccuWeatherCardEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._config = normalizeCardConfig({});
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  setConfig(config) {
+    this._config = normalizeCardConfig(config);
+    this._render();
+  }
+
+  _updateConfig(partial) {
+    this._config = normalizeCardConfig({
+      ...this._config,
+      ...partial,
+      grid_options: {
+        ...(this._config.grid_options || {}),
+        ...(partial.grid_options || {}),
+      },
+    });
+
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  _render() {
+    if (!this.shadowRoot) {
+      return;
+    }
+
+    const config = this._config;
+    const sensorsValue = Array.isArray(config.sensors) ? config.sensors.join('\n') : '';
+
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          color: var(--primary-text-color);
+        }
+
+        .editor {
+          display: grid;
+          gap: 16px;
+          padding: 4px 0 8px;
+        }
+
+        .section {
+          display: grid;
+          gap: 12px;
+          padding: 14px;
+          border-radius: 16px;
+          background: var(--card-background-color, rgba(255, 255, 255, 0.02));
+          border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.08));
+        }
+
+        .section-title {
+          font-size: 0.82rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--primary-color);
+        }
+
+        .field-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .field {
+          display: grid;
+          gap: 6px;
+        }
+
+        .field.wide {
+          grid-column: 1 / -1;
+        }
+
+        label {
+          font-size: 0.76rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          opacity: 0.72;
+        }
+
+        input,
+        textarea {
+          width: 100%;
+          box-sizing: border-box;
+          border-radius: 12px;
+          border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.12));
+          background: rgba(0, 0, 0, 0.12);
+          color: var(--primary-text-color);
+          padding: 10px 12px;
+          font: inherit;
+        }
+
+        textarea {
+          min-height: 98px;
+          resize: vertical;
+        }
+
+        .switches {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px 12px;
+        }
+
+        .switch {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid var(--divider-color, rgba(255, 255, 255, 0.08));
+          background: rgba(255, 255, 255, 0.02);
+        }
+
+        .switch span {
+          font-size: 0.92rem;
+          font-weight: 600;
+        }
+
+        .hint {
+          font-size: 0.82rem;
+          opacity: 0.65;
+          line-height: 1.4;
+        }
+
+        @media (max-width: 760px) {
+          .field-grid,
+          .switches {
+            grid-template-columns: 1fr;
+          }
+        }
+      </style>
+
+      <div class="editor">
+        <div class="section">
+          <div class="section-title">Weather</div>
+          <div class="field-grid">
+            <div class="field wide">
+              <label for="entity">Weather entity</label>
+              <input id="entity" type="text" value="${escapeHtml(config.entity || '')}" placeholder="weather.accuweather_palmerah" />
+            </div>
+            <div class="field wide">
+              <label for="title">Card title</label>
+              <input id="title" type="text" value="${escapeHtml(config.title || '')}" placeholder="AccuWeather" />
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Layout</div>
+          <div class="field-grid">
+            <div class="field">
+              <label for="grid-columns">Grid columns</label>
+              <input id="grid-columns" type="text" value="${escapeHtml(config.grid_options?.columns ?? '')}" placeholder="6 or full" />
+            </div>
+            <div class="field">
+              <label for="grid-rows">Grid rows</label>
+              <input id="grid-rows" type="text" value="${escapeHtml(config.grid_options?.rows ?? '')}" placeholder="auto" />
+            </div>
+            <div class="field">
+              <label for="min-rows">Min rows</label>
+              <input id="min-rows" type="text" value="${escapeHtml(config.grid_options?.min_rows ?? '')}" placeholder="4" />
+            </div>
+            <div class="field">
+              <label for="forecast-limit">Daily forecast limit</label>
+              <input id="forecast-limit" type="text" value="${escapeHtml(config.forecast_limit ?? '')}" placeholder="5" />
+            </div>
+            <div class="field">
+              <label for="hourly-limit">Hourly forecast limit</label>
+              <input id="hourly-limit" type="text" value="${escapeHtml(config.hourly_forecast_limit ?? '')}" placeholder="6" />
+            </div>
+          </div>
+          <div class="hint">Rows accepts <code>auto</code> or a number. Columns can also be set to <code>full</code>.</div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Panels</div>
+          <div class="switches">
+            <label class="switch"><span>Show current</span><input id="show-current" type="checkbox" ${config.show_current !== false ? 'checked' : ''} /></label>
+            <label class="switch"><span>Show air quality</span><input id="show-air-quality" type="checkbox" ${config.show_air_quality !== false ? 'checked' : ''} /></label>
+            <label class="switch"><span>Show forecast</span><input id="show-forecast" type="checkbox" ${config.show_forecast !== false ? 'checked' : ''} /></label>
+            <label class="switch"><span>Show allergy</span><input id="show-allergy" type="checkbox" ${config.show_allergy !== false ? 'checked' : ''} /></label>
+            <label class="switch"><span>Show sensors</span><input id="show-sensors" type="checkbox" ${config.show_sensors !== false ? 'checked' : ''} /></label>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">Sensors</div>
+          <div class="field wide">
+            <label for="sensors">Additional sensor entities</label>
+            <textarea id="sensors" placeholder="sensor.air_quality_index\nsensor.pm25\nsensor.pm10">${escapeHtml(sensorsValue)}</textarea>
+          </div>
+          <div class="hint">One entity per line or separated by commas.</div>
+        </div>
+      </div>
+    `;
+
+    const updateTextField = (id, handler) => {
+      const node = this.shadowRoot.querySelector(`#${id}`);
+      if (!node) {
+        return;
+      }
+
+      node.addEventListener('input', (event) => handler(event.target.value));
+    };
+
+    updateTextField('entity', (value) => this._updateConfig({ entity: value.trim() }));
+    updateTextField('title', (value) => this._updateConfig({ title: value.trim() }));
+    updateTextField('grid-columns', (value) => this._updateConfig({ grid_options: { columns: normalizeGridValue(value, DEFAULT_GRID_OPTIONS.columns) } }));
+    updateTextField('grid-rows', (value) => this._updateConfig({ grid_options: { rows: normalizeGridValue(value, DEFAULT_GRID_OPTIONS.rows) } }));
+    updateTextField('min-rows', (value) => this._updateConfig({ grid_options: { min_rows: normalizeIntegerValue(value, DEFAULT_GRID_OPTIONS.min_rows) } }));
+    updateTextField('forecast-limit', (value) => this._updateConfig({ forecast_limit: normalizeIntegerValue(value, DEFAULT_CARD_CONFIG.forecast_limit) }));
+    updateTextField('hourly-limit', (value) => this._updateConfig({ hourly_forecast_limit: normalizeIntegerValue(value, DEFAULT_CARD_CONFIG.hourly_forecast_limit) }));
+    updateTextField('sensors', (value) => this._updateConfig({ sensors: parseSensorList(value) }));
+
+    for (const [id, key] of [
+      ['show-current', 'show_current'],
+      ['show-air-quality', 'show_air_quality'],
+      ['show-forecast', 'show_forecast'],
+      ['show-allergy', 'show_allergy'],
+      ['show-sensors', 'show_sensors'],
+    ]) {
+      const node = this.shadowRoot.querySelector(`#${id}`);
+      if (node) {
+        node.addEventListener('change', (event) => this._updateConfig({ [key]: event.target.checked }));
+      }
+    }
+  }
+}
+
+if (!customElements.get('accuweather-card-editor')) {
+  customElements.define('accuweather-card-editor', AccuWeatherCardEditor);
+}
+
+AccuWeatherCard.getConfigElement = () => document.createElement('accuweather-card-editor');
+
+AccuWeatherCard.getStubConfig = (hass, entities, entitiesFallback) => ({
+  entity: entities?.find((entityId) => String(entityId).startsWith('weather.'))
+    || entitiesFallback?.find((entityId) => String(entityId).startsWith('weather.'))
+    || entities?.[0]
+    || entitiesFallback?.[0]
+    || '',
+  title: 'AccuWeather',
+  show_current: true,
+  show_air_quality: true,
+  show_forecast: true,
+  show_allergy: true,
+  show_sensors: true,
+  forecast_limit: 5,
+  hourly_forecast_limit: 6,
+  grid_options: { ...DEFAULT_GRID_OPTIONS },
+});
 
 if (!customElements.get('accuweather-card')) {
   customElements.define('accuweather-card', AccuWeatherCard);
