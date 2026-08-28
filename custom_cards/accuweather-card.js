@@ -301,6 +301,29 @@ function normalizeIntegerValue(value, fallback) {
 }
 
 class AccuWeatherCard extends HTMLElement {
+  static getConfigElement() {
+    return document.createElement('accuweather-card-editor');
+  }
+
+  static getStubConfig(hass, entities, entitiesFallback) {
+    return {
+      entity: entities?.find((entityId) => String(entityId).startsWith('weather.'))
+        || entitiesFallback?.find((entityId) => String(entityId).startsWith('weather.'))
+        || entities?.[0]
+        || entitiesFallback?.[0]
+        || '',
+      title: 'AccuWeather',
+      show_current: true,
+      show_air_quality: true,
+      show_forecast: true,
+      show_allergy: true,
+      show_sensors: true,
+      forecast_limit: 5,
+      hourly_forecast_limit: 6,
+      grid_options: { ...DEFAULT_GRID_OPTIONS },
+    };
+  }
+
   setConfig(config) {
     this._config = normalizeCardConfig(config);
 
@@ -1441,25 +1464,6 @@ class AccuWeatherCardEditor extends HTMLElement {
 if (!customElements.get('accuweather-card-editor')) {
   customElements.define('accuweather-card-editor', AccuWeatherCardEditor);
 }
-
-AccuWeatherCard.getConfigElement = () => document.createElement('accuweather-card-editor');
-
-AccuWeatherCard.getStubConfig = (hass, entities, entitiesFallback) => ({
-  entity: entities?.find((entityId) => String(entityId).startsWith('weather.'))
-    || entitiesFallback?.find((entityId) => String(entityId).startsWith('weather.'))
-    || entities?.[0]
-    || entitiesFallback?.[0]
-    || '',
-  title: 'AccuWeather',
-  show_current: true,
-  show_air_quality: true,
-  show_forecast: true,
-  show_allergy: true,
-  show_sensors: true,
-  forecast_limit: 5,
-  hourly_forecast_limit: 6,
-  grid_options: { ...DEFAULT_GRID_OPTIONS },
-});
 
 if (!customElements.get('accuweather-card')) {
   customElements.define('accuweather-card', AccuWeatherCard);
