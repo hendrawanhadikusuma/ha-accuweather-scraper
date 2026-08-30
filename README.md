@@ -85,6 +85,13 @@ subtitle: Mobile Legends
 
 The card reads team names, team logos, scores, venue, date, status, and update metadata from the sensor attributes.
 
+Supported match states:
+
+- `PRE` or `upcoming` for upcoming matches.
+- `IN` or `live` for live matches.
+- `POST` or `finished` for finished matches.
+- `NOT_FOUND` for missing match data or API errors.
+
 ## System card
 
 The repo also includes a `system-card` at `custom_cards/system-card.js` for Raspberry Pi monitor data.

@@ -47,19 +47,23 @@ function formatDateTime(value) {
 function normalizeStatus(value) {
   const raw = String(value || '').trim().toLowerCase();
 
-  if (['live', 'in_progress', 'ongoing', 'playing'].includes(raw)) {
+  if (['pre', 'upcoming', 'scheduled', 'soon'].includes(raw)) {
+    return { label: 'UPCOMING', tone: 'upcoming', detail: 'UPCOMING MATCH' };
+  }
+
+  if (['in', 'live', 'in_progress', 'ongoing', 'playing'].includes(raw)) {
     return { label: 'LIVE', tone: 'live', detail: 'MATCH IN PROGRESS' };
   }
 
-  if (['finished', 'final', 'post', 'ended', 'done'].includes(raw)) {
-    return { label: 'FINAL', tone: 'final', detail: 'MATCH COMPLETED' };
+  if (['post', 'finished', 'final', 'ended', 'done'].includes(raw)) {
+    return { label: 'FINISHED', tone: 'finished', detail: 'MATCH COMPLETED' };
   }
 
-  if (['cancelled', 'canceled', 'postponed', 'delay'].includes(raw)) {
-    return { label: 'DELAYED', tone: 'warn', detail: 'MATCH UPDATE PENDING' };
+  if (['not_found', 'not found', 'notfound', 'error', 'api_error'].includes(raw)) {
+    return { label: 'NOT FOUND', tone: 'not-found', detail: 'NO MATCH OR API ERROR' };
   }
 
-  return { label: 'UPCOMING', tone: 'upcoming', detail: 'MATCH SCHEDULED' };
+  return { label: 'UPCOMING', tone: 'upcoming', detail: 'UPCOMING MATCH' };
 }
 
 function scoreText(value) {
@@ -267,10 +271,22 @@ class MatchCard extends HTMLElement {
           background: rgba(52, 211, 153, 0.08);
         }
 
+        .match-status.finished {
+          color: #34d399;
+          border-color: rgba(52, 211, 153, 0.34);
+          background: rgba(52, 211, 153, 0.08);
+        }
+
         .match-status.warn {
           color: #fbbf24;
           border-color: rgba(251, 191, 36, 0.34);
           background: rgba(251, 191, 36, 0.08);
+        }
+
+        .match-status.not-found {
+          color: #fda4af;
+          border-color: rgba(253, 164, 175, 0.34);
+          background: rgba(251, 113, 133, 0.08);
         }
 
         .match-summary {
@@ -327,7 +343,9 @@ class MatchCard extends HTMLElement {
         .match-logo img {
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: scale-down;
+          object-position: center;
+          padding: 4px;
           display: block;
         }
 
