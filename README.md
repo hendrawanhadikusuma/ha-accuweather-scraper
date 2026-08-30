@@ -69,6 +69,22 @@ If you want the card to be installable through HACS with no manual copy step, it
 
 This card also ships with a Lovelace visual editor once the JS file is loaded as a dashboard resource. In the UI editor you can set the weather entity, title, grid options, panel toggles, forecast limits, and sensor list without writing YAML by hand.
 
+
+## Match card
+
+The repo also includes a `match-card` at `custom_cards/match-card.js` for esports-style matchup data.
+
+Example config:
+
+```yaml
+type: custom:match-card
+entity: sensor.mlbb_match
+title: MLBB MATCH
+subtitle: Mobile Legends
+```
+
+The card reads team names, team logos, scores, venue, date, status, and update metadata from the sensor attributes.
+
 ## System card
 
 The repo also includes a `system-card` at `custom_cards/system-card.js` for Raspberry Pi monitor data.
