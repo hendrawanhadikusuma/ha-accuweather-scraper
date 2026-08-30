@@ -35,6 +35,8 @@ Example URL:
 
 `https://www.accuweather.com/id/id/palmerah/681074/weather-forecast/681074`
 
+If you also want the experimental Liquipedia match sensor, copy `custom_components/liquipedia_match_scraper` into the same `custom_components` folder as a second integration.
+
 ## Notes
 
 This project scrapes public HTML rather than using the official AccuWeather API. HTML structure can change at any time. If AccuWeather changes its markup, update `scraper.py`.
@@ -106,6 +108,34 @@ history_hours: 24
 ```
 
 The sparkline charts use Home Assistant history data for the selected entity, so Recorder/history needs to be available for chart traces to appear.
+
+## Liquipedia match sensor
+
+This repo also includes an experimental `liquipedia_match_scraper` integration that derives the score page automatically from the team's upcoming match row.
+
+Recommended example URL:
+
+```text
+team_url: https://liquipedia.net/mobilelegends/RRQ_Hoshi
+```
+
+It exposes a single match sensor that can be used directly by `custom_cards/match-card.js`.
+
+Example state attributes:
+
+```yaml
+state: PRE
+team_name: RRQ Hoshi
+opponent_name: Geek Fam ID
+team_score: null
+opponent_score: null
+date: 2026-08-30T17:00:00+07:00
+venue: MPL Indonesia Season 18 - RS: Week 3
+score_url: https://liquipedia.net/mobilelegends/MPL/Indonesia/Season_18/Regular_Season#RS:_Week_2
+score_section: RS: Week 2
+```
+
+Because Liquipedia layouts vary by wiki and page type, this sensor is intentionally experimental. If the page structure changes, you may want to split it into a separate repository later.
 
 ## Network card
 
